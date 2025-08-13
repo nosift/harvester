@@ -1,0 +1,374 @@
+#!/usr/bin/env python3
+
+"""
+Configuration Data Schemas
+
+This module defines all configuration data classes used throughout the application.
+It consolidates and replaces duplicate configuration definitions from multiple files.
+
+Key Features:
+- Type-safe configuration structures
+- Default value support
+- Validation methods
+- Unified configuration schema
+"""
+
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
+
+from constant.runtime import StandardPipelineStage
+from core.enums import LoadBalanceStrategy
+from core.models import RateLimitConfig
+
+
+@dataclass
+class CredentialsConfig:
+    """GitHub credentials configuration with load balancing"""
+
+    sessions: List[str] = field(default_factory=list)
+    tokens: List[str] = field(default_factory=list)
+    strategy: LoadBalanceStrategy = LoadBalanceStrategy.ROUND_ROBIN
+
+    def __post_init__(self):
+        """Validate credentials configuration"""
+        # Filter out placeholder values
+        valid_sessions = [s for s in self.sessions if s and not s.startswith("your_")]
+        valid_tokens = [t for t in self.tokens if t and not t.startswith("your_")]
+
+        # Check if we have any placeholder values
+        has_placeholder_sessions = any(s.startswith("your_") for s in self.sessions)
+        has_placeholder_tokens = any(t.startswith("your_") for t in self.tokens)
+
+        # Only require valid credentials if no placeholders are present
+        if not valid_sessions and not valid_tokens and not has_placeholder_sessions and not has_placeholder_tokens:
+            raise ValueError("At least one session or token must be provided")
+
+        # Convert string strategy to enum if needed
+        if isinstance(self.strategy, str):
+            self.strategy = LoadBalanceStrategy(self.strategy)
+
+
+@dataclass
+class GlobalConfig:
+    """Global application configuration"""
+
+    workspace: str = "./data"
+    max_retries_requeued: int = 3
+    github_credentials: Optional[CredentialsConfig] = None
+    user_agents: List[str] = field(default_factory=list)
+
+    def __post_init__(self):
+        """Set default values if none provided"""
+        # Set default credentials with placeholder values
+        if self.github_credentials is None:
+            self.github_credentials = CredentialsConfig(
+                sessions=["your_github_session_here"],
+                tokens=["your_github_token_here"],
+                strategy=LoadBalanceStrategy.ROUND_ROBIN,
+            )
+
+        # Set default user agents if none provided
+        if not self.user_agents:
+            self.user_agents = [
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
+            ]
+
+
+def _get_default_threads() -> Dict[str, int]:
+    """Get default thread configuration using StandardPipelineStage enum"""
+    return {
+        StandardPipelineStage.SEARCH.value: 1,
+        StandardPipelineStage.GATHER.value: 8,
+        StandardPipelineStage.CHECK.value: 4,
+        StandardPipelineStage.INSPECT.value: 2,
+    }
+
+
+def _get_default_queue_sizes() -> Dict[str, int]:
+    """Get default queue sizes using StandardPipelineStage enum"""
+    return {
+        StandardPipelineStage.SEARCH.value: 100000,
+        StandardPipelineStage.GATHER.value: 200000,
+        StandardPipelineStage.CHECK.value: 500000,
+        StandardPipelineStage.INSPECT.value: 1000000,
+    }
+
+
+@dataclass
+class PipelineConfig:
+    """Pipeline stage configuration"""
+
+    threads: Dict[str, int] = field(default_factory=_get_default_threads)
+    queue_sizes: Dict[str, int] = field(default_factory=_get_default_queue_sizes)
+
+
+@dataclass
+class StatsConfig:
+    """Statistics display configuration"""
+
+    interval: int = 10
+    show: bool = True
+
+
+@dataclass
+class MonitoringConfig:
+    """System monitoring and alerting configuration"""
+
+    update_interval: float = 2.0
+    error_threshold: float = 0.1
+    queue_threshold: int = 1000
+    memory_threshold: int = 1073741824  # 1GB in bytes
+    response_threshold: float = 5.0
+
+    def __post_init__(self):
+        """Validate monitoring configuration"""
+        if self.update_interval <= 0:
+            raise ValueError("update_interval must be positive")
+        if not (0 <= self.error_threshold <= 1):
+            raise ValueError("error_threshold must be between 0 and 1")
+        if self.queue_threshold < 0:
+            raise ValueError("queue_threshold must be non-negative")
+        if self.memory_threshold <= 0:
+            raise ValueError("memory_threshold must be positive")
+        if self.response_threshold <= 0:
+            raise ValueError("response_threshold must be positive")
+
+    def is_error_critical(self, error_rate: float) -> bool:
+        """Check if error rate exceeds threshold"""
+        return error_rate > self.error_threshold
+
+    def is_queue_critical(self, queue_size: int) -> bool:
+        """Check if queue size exceeds threshold"""
+        return queue_size > self.queue_threshold
+
+    def is_memory_critical(self, memory_usage_mb: int) -> bool:
+        """Check if memory usage exceeds threshold"""
+        return memory_usage_mb > self.memory_threshold
+
+    def is_response_critical(self, response_time: float) -> bool:
+        """Check if response time exceeds threshold"""
+        return response_time > self.response_threshold
+
+
+@dataclass
+class DisplayContextConfig:
+    """Display configuration for a specific context"""
+
+    title: str = ""
+    show_workers: bool = True
+    show_alerts: bool = True
+    show_performance: bool = False
+    show_newline_prefix: bool = False
+
+
+@dataclass
+class DisplayConfig:
+    """Display configuration for all contexts"""
+
+    contexts: Dict[str, Dict[str, DisplayContextConfig]] = field(default_factory=dict)
+
+    def __post_init__(self):
+        """Set default display configurations if none provided"""
+        if not self.contexts:
+            self._set_default_contexts()
+
+    def _set_default_contexts(self):
+        """Set default display context configurations"""
+        # System context
+        self.contexts["system"] = {
+            "standard": DisplayContextConfig(
+                title="System Status", show_workers=True, show_alerts=True, show_performance=False
+            ),
+            "compact": DisplayContextConfig(
+                title="System Status", show_workers=False, show_alerts=False, show_performance=False
+            ),
+            "detailed": DisplayContextConfig(
+                title="Detailed System Status",
+                show_workers=True,
+                show_alerts=True,
+                show_performance=True,
+                show_newline_prefix=True,
+            ),
+        }
+
+        # Monitoring context
+        self.contexts["monitoring"] = {
+            "standard": DisplayContextConfig(
+                title="Pipeline Monitoring", show_workers=True, show_alerts=True, show_performance=True
+            ),
+            "detailed": DisplayContextConfig(
+                title="Detailed Pipeline Monitoring",
+                show_workers=True,
+                show_alerts=True,
+                show_performance=True,
+                show_newline_prefix=True,
+            ),
+        }
+
+        # Task manager context
+        self.contexts["task"] = {
+            "standard": DisplayContextConfig(
+                title="Task Manager Status", show_workers=True, show_alerts=False, show_performance=False
+            ),
+            "compact": DisplayContextConfig(
+                title="Task Progress", show_workers=False, show_alerts=False, show_performance=False
+            ),
+        }
+
+        # Application context
+        self.contexts["application"] = {
+            "standard": DisplayContextConfig(
+                title="Application Status", show_workers=False, show_alerts=True, show_performance=False
+            ),
+            "detailed": DisplayContextConfig(
+                title="Detailed Application Status", show_workers=True, show_alerts=True, show_performance=True
+            ),
+        }
+
+
+@dataclass
+class PersistenceConfig:
+    """Persistence and recovery configuration"""
+
+    batch_size: int = 50
+    save_interval: int = 30
+    queue_interval: int = 60
+    snapshot_interval: int = 300  # seconds, periodic snapshot build interval
+    auto_restore: bool = True
+    shutdown_timeout: int = 30
+    simple: bool = False  # Write simple text files alongside NDJSON
+
+
+@dataclass
+class ApiConfig:
+    """API configuration for a provider"""
+
+    base_url: str = ""
+    completion_path: str = "/v1/chat/completions"
+    model_path: str = "/v1/models"
+    default_model: str = ""
+    auth_key: str = "Authorization"
+    extra_headers: Dict[str, str] = field(default_factory=dict)
+    api_version: str = ""
+    timeout: int = 30
+    retries: int = 3
+
+
+@dataclass
+class Patterns:
+    """Extraction patterns for keys and metadata"""
+
+    key_pattern: str = ""
+    address_pattern: str = ""
+    endpoint_pattern: str = ""
+    model_pattern: str = ""
+
+
+@dataclass
+class StageConfig:
+    """Pipeline stage configuration for individual tasks"""
+
+    search: bool = True
+    gather: bool = True
+    check: bool = True
+    inspect: bool = True
+
+    def validate(self) -> None:
+        """Validate stage dependencies"""
+        if not self.check and self.inspect:
+            raise ValueError("inspect stage requires check stage to be enabled")
+
+
+@dataclass
+class TaskConfig:
+    """Configuration for a single provider task"""
+
+    name: str = ""
+    enabled: bool = True
+    provider_type: str = ""
+    use_api: bool = False
+    stages: StageConfig = field(default_factory=StageConfig)
+    extras: Dict[str, Any] = field(default_factory=dict)
+    api: ApiConfig = field(default_factory=ApiConfig)
+    patterns: Patterns = field(default_factory=Patterns)
+    conditions: List[Dict[str, str]] = field(default_factory=list)
+    rate_limit: RateLimitConfig = field(default_factory=RateLimitConfig)
+
+
+@dataclass
+class WorkerManagerConfig:
+    """Worker manager configuration for dynamic thread management"""
+
+    min_workers: int = 1
+    max_workers: int = 10
+    target_queue_size: int = 100
+    adjustment_interval: float = 5.0
+    scale_up_threshold: float = 0.8
+    scale_down_threshold: float = 0.2
+    log_recommendations: bool = True  # Enable/disable worker adjustment recommendation logging
+
+    def __post_init__(self):
+        """Validate worker manager configuration"""
+        if self.min_workers < 1:
+            raise ValueError("min_workers must be at least 1")
+        if self.max_workers < self.min_workers:
+            raise ValueError("max_workers must be >= min_workers")
+        if self.target_queue_size < 0:
+            raise ValueError("target_queue_size must be non-negative")
+        if self.adjustment_interval <= 0:
+            raise ValueError("adjustment_interval must be positive")
+        if not (0 < self.scale_up_threshold < 1):
+            raise ValueError("scale_up_threshold must be between 0 and 1")
+        if not (0 < self.scale_down_threshold < 1):
+            raise ValueError("scale_down_threshold must be between 0 and 1")
+        if self.scale_down_threshold >= self.scale_up_threshold:
+            raise ValueError("scale_down_threshold must be < scale_up_threshold")
+
+    def is_scale_up_needed(self, queue_ratio: float) -> bool:
+        """Check if scale up is needed based on queue ratio"""
+        return queue_ratio > self.scale_up_threshold
+
+    def is_scale_down_needed(self, queue_ratio: float) -> bool:
+        """Check if scale down is needed based on queue ratio"""
+        return queue_ratio < self.scale_down_threshold
+
+    def calculate_target_workers(self, current_queue_size: int, current_workers: int) -> int:
+        """Calculate target number of workers based on current metrics"""
+        if current_queue_size == 0:
+            return max(self.min_workers, current_workers - 1)
+
+        queue_ratio = current_queue_size / max(self.target_queue_size, 1)
+
+        if queue_ratio > self.scale_up_threshold:
+            target = min(self.max_workers, current_workers + 1)
+        elif queue_ratio < self.scale_down_threshold:
+            target = max(self.min_workers, current_workers - 1)
+        else:
+            target = current_workers
+
+        return target
+
+
+@dataclass
+class Config:
+    """Main configuration container"""
+
+    global_config: GlobalConfig = field(default_factory=GlobalConfig)
+    pipeline: PipelineConfig = field(default_factory=PipelineConfig)
+    stats: StatsConfig = field(default_factory=StatsConfig)
+    monitoring: MonitoringConfig = field(default_factory=MonitoringConfig)
+    display: DisplayConfig = field(default_factory=DisplayConfig)
+    persistence: PersistenceConfig = field(default_factory=PersistenceConfig)
+    worker_manager: WorkerManagerConfig = field(default_factory=WorkerManagerConfig)
+    rate_limits: Dict[str, RateLimitConfig] = field(default_factory=dict)
+    tasks: List[TaskConfig] = field(default_factory=list)
+
+    def __post_init__(self):
+        """Set default rate limits if none provided"""
+        if not self.rate_limits:
+            self.rate_limits = {
+                "github_api": RateLimitConfig(base_rate=0.15, burst_limit=3, adaptive=True),
+                "github_web": RateLimitConfig(base_rate=0.5, burst_limit=2, adaptive=True),
+            }

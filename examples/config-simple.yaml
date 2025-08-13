@@ -1,0 +1,81 @@
+# Basic Configuration Example
+global:
+  # Working directory for data and results
+  workspace: "./data"
+  # GitHub credentials settings
+  github_credentials:
+    sessions:
+      - "your_github_session_here" # Replace with your GitHub session token
+    # Load balancing strategy: round_robin or random
+    strategy: "round_robin"
+
+# Pipeline configuration
+pipeline:
+  # Number of threads for each stage
+  threads:
+    search: 1 # Search stage threads (keep low due to rate limits)
+    gather: 4 # Acquisition stage threads
+    check: 2 # Validation stage threads
+    inspect: 1 # API capability inspection threads
+
+# Statistics configuration
+stats:
+  # Update interval in seconds
+  interval: 10
+  # Enable statistics display
+  show: true
+
+# Monitoring settings
+monitoring:
+  # Monitoring update interval in seconds
+  update_interval: 2.0
+  # Error rate threshold (0.0 to 1.0)
+  error_threshold: 0.1
+
+# Persistence configuration
+persistence:
+  # Auto restore state on startup
+  auto_restore: true
+  # Shutdown timeout in seconds
+  shutdown_timeout: 30
+
+# Worker pool settings
+worker:
+  # Minimum number of workers
+  min_workers: 1
+  # Maximum number of workers
+  max_workers: 5
+
+# Rate limiting configuration
+ratelimits:
+  # GitHub web scraping limits
+  github_web:
+    # Base rate in requests per second
+    base_rate: 0.5
+    # Maximum burst size
+    burst_limit: 2
+    # Enable adaptive rate limiting
+    adaptive: true
+
+# Provider task configurations
+tasks:
+  # OpenAI provider configuration
+  - name: "openai"
+    # Enable/disable this provider
+    enabled: true
+    # Provider type for API compatibility
+    provider_type: "openai_like"
+    # Use GitHub API for searching
+    use_api: false
+    # Pipeline stage settings
+    stages:
+      search: true # Enable search stage
+      gather: true # Enable acquisition stage
+      check: true # Enable validation stage
+      inspect: true # Enable API capability inspection
+    # Pattern matching configuration
+    patterns:
+      key_pattern: "sk(?:-proj)?-[a-zA-Z0-9]{20}T3BlbkFJ[a-zA-Z0-9]{20}"
+    # Search conditions
+    conditions:
+      - query: '"T3BlbkFJ"'

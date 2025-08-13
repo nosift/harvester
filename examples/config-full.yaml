@@ -1,0 +1,262 @@
+# Full Configuration Example
+display:
+  # Display context configuration for different views
+  contexts:
+    # Application status display settings
+    application:
+      detailed:
+        title: "Detailed Application Status"
+        show_workers: true
+        show_alerts: true
+        show_performance: true
+        show_newline_prefix: false
+      standard:
+        title: "Application Status"
+        show_workers: false
+        show_alerts: true
+        show_performance: false
+        show_newline_prefix: false
+    # Monitoring display settings
+    monitoring:
+      detailed:
+        title: "Detailed Pipeline Monitoring"
+        show_workers: true
+        show_alerts: true
+        show_performance: true
+        show_newline_prefix: true
+      standard:
+        title: "Pipeline Monitoring"
+        show_workers: true
+        show_alerts: true
+        show_performance: true
+        show_newline_prefix: false
+    # System status display settings
+    system:
+      compact:
+        title: "System Status"
+        show_workers: false
+        show_alerts: false
+        show_performance: false
+        show_newline_prefix: false
+      detailed:
+        title: "Detailed System Status"
+        show_workers: true
+        show_alerts: true
+        show_performance: true
+        show_newline_prefix: true
+      standard:
+        title: "System Status"
+        show_workers: true
+        show_alerts: true
+        show_performance: false
+        show_newline_prefix: false
+    # Task status display settings
+    task:
+      compact:
+        title: "Task Progress"
+        show_workers: false
+        show_alerts: false
+        show_performance: false
+        show_newline_prefix: false
+      standard:
+        title: "Task Status"
+        show_workers: true
+        show_alerts: false
+        show_performance: false
+        show_newline_prefix: false
+    main:
+      standard:
+        show_alerts: false
+        show_newline_prefix: false
+        show_performance: false
+        show_workers: true
+        title: Pipeline Status
+
+global:
+  # Working directory for storing data and results
+  workspace: "./data"
+  # Maximum number of times a task can be requeued after failure
+  max_retries_requeued: 3
+  # GitHub credentials configuration
+  github_credentials:
+    # GitHub session tokens (recommended)
+    sessions:
+      - "your_github_session_here"
+    # GitHub API tokens (optional)
+    tokens:
+      - "your_github_token_here"
+    # Load balancing strategy: round_robin or random
+    strategy: "round_robin"
+  # User-Agent list for web requests
+  user_agents:
+    - "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
+    - "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
+    - "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
+
+# Pipeline configuration
+pipeline:
+  # Number of threads for each stage
+  threads:
+    search: 1 # Search stage threads (keep low due to rate limits)
+    gather: 8 # Acquisition stage threads
+    check: 4 # Validation stage threads
+    inspect: 2 # API capability inspection threads
+  # Queue sizes for each stage
+  queue_sizes:
+    search: 100000 # Search results queue
+    gather: 200000 # Acquisition tasks queue
+    check: 500000 # Validation tasks queue
+    inspect: 1000000 # API capability inspection tasks queue
+
+# Statistics configuration
+stats:
+  # Statistics update interval in seconds
+  interval: 10
+  # Enable statistics display
+  show: true
+
+# Monitoring configuration
+monitoring:
+  # Monitoring update interval in seconds
+  update_interval: 2.0
+  # Error rate threshold (0.0 to 1.0)
+  error_threshold: 0.1
+  # Queue size warning threshold
+  queue_threshold: 1000
+  # Memory usage threshold in bytes
+  memory_threshold: 1073741824 # 1GB
+  # Response time threshold in seconds
+  response_threshold: 5.0
+
+# Persistence configuration
+persistence:
+  # Batch size for saving results
+  batch_size: 50
+  # Result save interval in seconds
+  save_interval: 30
+  # Queue state save interval in seconds
+  queue_interval: 60
+  # Auto restore state on startup
+  auto_restore: true
+  # Shutdown timeout in seconds
+  shutdown_timeout: 30
+
+# Worker pool configuration
+worker:
+  # Minimum number of worker threads
+  min_workers: 1
+  # Maximum number of worker threads
+  max_workers: 10
+  # Target queue size for auto-scaling
+  target_queue_size: 100
+  # Thread pool adjustment interval in seconds
+  adjustment_interval: 5.0
+  # Queue size threshold for scaling up
+  scale_up_threshold: 0.8
+  # Queue size threshold for scaling down
+  scale_down_threshold: 0.2
+
+# Rate limiting configuration
+ratelimits:
+  # GitHub API rate limits
+  github_api:
+    # Base rate in requests per second
+    base_rate: 0.15
+    # Maximum burst size
+    burst_limit: 3
+    # Enable adaptive rate limiting
+    adaptive: true
+  # GitHub Web scraping rate limits
+  github_web:
+    # Base rate in requests per second
+    base_rate: 0.5
+    # Maximum burst size
+    burst_limit: 2
+    # Enable adaptive rate limiting
+    adaptive: true
+
+# Provider task configurations
+tasks:
+  # OpenAI configuration example
+  - name: "openai" # Provider name
+    enabled: true # Enable/disable this provider
+    provider_type: "openai_like" # Provider type for API compatibility
+    use_api: false # Whether to use GitHub API for searching
+
+    # Pipeline stage enable/disable flags
+    stages:
+      search: true # Enable search stage
+      gather: true # Enable acquisition stage
+      check: true # Enable validation stage
+      inspect: true # Enable API capability inspection
+
+    # API configuration
+    api:
+      base_url: "https://api.openai.com" # Base API endpoint
+      completion_path: "/v1/chat/completions" # Chat completion endpoint
+      model_path: "/v1/models" # Models list endpoint
+      default_model: "gpt-4" # Default model to use
+      auth_key: "Authorization" # Auth header key
+      api_version: "" # API version (if required)
+      timeout: 30 # Request timeout in seconds
+      retries: 3 # Number of retries
+      extra_headers: {} # Additional headers
+
+    # Pattern matching configuration
+    patterns:
+      key_pattern: "sk(?:-proj)?-[a-zA-Z0-9]{20}T3BlbkFJ[a-zA-Z0-9]{20}" # API key pattern
+      address_pattern: "" # API endpoint pattern
+      endpoint_pattern: "" # Additional endpoint pattern
+      model_pattern: "" # Model name pattern
+
+    # Search conditions
+    conditions:
+      - query: '"T3BlbkFJ"' # Search query
+        regex: "" # Optional regex pattern
+
+    # Provider-specific rate limits
+    rate_limit:
+      base_rate: 2.0 # Base rate in requests per second
+      burst_limit: 10 # Maximum burst size
+      adaptive: true # Enable adaptive rate limiting
+      backoff_factor: 0.5 # Rate reduction factor
+      recovery_factor: 1.1 # Rate increase factor
+      max_rate_multiplier: 2.0 # Maximum rate increase
+      min_rate_multiplier: 0.1 # Minimum rate decrease
+
+    # Additional provider-specific settings
+    extras:
+      directory: "results" # Results directory
+
+  # Anthropic configuration example
+  - name: "anthropic"
+    enabled: true
+    provider_type: "anthropic"
+    use_api: false
+    stages:
+      search: true
+      gather: true
+      check: true
+      inspect: true
+    api:
+      base_url: "https://api.anthropic.com"
+      completion_path: "/v1/messages"
+      model_path: "/v1/models"
+      default_model: "claude-sonnet-4-20250514"
+      auth_key: "x-api-key"
+      timeout: 30
+      retries: 3
+    patterns:
+      key_pattern: 'sk-ant-(?:sid01|api03)-[a-zA-Z0-9_\-]{93}AA'
+    conditions:
+      - query: '/sk-ant-(?:sid01|api03)-[a-zA-Z0-9_\-]{93}AA/'
+    rate_limit:
+      base_rate: 1.0
+      burst_limit: 5
+      adaptive: true
+      backoff_factor: 0.5
+      recovery_factor: 1.1
+      max_rate_multiplier: 2.0
+      min_rate_multiplier: 0.1
+    extras:
+      directory: "customize"

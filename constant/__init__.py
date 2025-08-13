@@ -1,0 +1,209 @@
+#!/usr/bin/env python3
+
+"""
+Constants Package - Reorganized by Functional Modules
+
+This package provides constants organized by the specific modules they serve,
+improving maintainability and reducing coupling between different system components.
+
+Key Features:
+- Module-focused organization
+- Clear separation of concerns
+- Elimination of duplicate constants
+- Easy import and usage
+"""
+
+# State monitoring configuration
+from .monitoring import (
+    COLLECTOR_ALERT_SOURCES,
+    COLLECTOR_CACHE_KEYS,
+    COLLECTOR_CACHE_TTL,
+    COLLECTOR_ERROR_TEMPLATES,
+    FIELD_MAPPINGS,
+    MONITORING_CONFIG,
+    MONITORING_THRESHOLDS,
+)
+
+# Runtime pipeline and queue management
+from .runtime import (
+    DEFAULT_CHECK_QUEUE_SIZE,
+    DEFAULT_GATHER_QUEUE_SIZE,
+    DEFAULT_INSPECT_QUEUE_SIZE,
+    DEFAULT_SEARCH_QUEUE_SIZE,
+    DEFAULT_THREAD_COUNTS,
+    QUEUE_STATE_MAX_AGE_HOURS,
+    QUEUE_STATE_PROVIDER_MULTI,
+    RESULT_TYPE_MAPPINGS,
+    STATS_MAPPINGS,
+    QueueOperation,
+    QueueStateField,
+    QueueStateProvider,
+    QueueStateStatus,
+    ResultTypeConfig,
+    StandardPipelineStage,
+    StatsField,
+    StatsMapping,
+    WorkerStatsField,
+)
+
+# Search engine configuration
+from .search import (
+    ALLOWED_OPERATORS,
+    API_LIMIT,
+    API_MAX_PAGES,
+    API_RESULTS_PER_PAGE,
+    POPULAR_LANGUAGES,
+    SIZE_RANGES,
+    WEB_LIMIT,
+    WEB_MAX_PAGES,
+    WEB_RESULTS_PER_PAGE,
+)
+
+# System configuration and limits
+# Network and API configuration
+from .system import (
+    ALERT_COOLDOWN_SECONDS,
+    APPLICATION_BANNER,
+    CTX,
+    DEFAULT_ADJUSTMENT_INTERVAL,
+    DEFAULT_AUTHORIZATION_HEADER,
+    DEFAULT_BATCH_SIZE,
+    DEFAULT_COMPLETION_PATH,
+    DEFAULT_CONFIG_FILE,
+    DEFAULT_ERROR_RATE_THRESHOLD_APP,
+    DEFAULT_HEADERS,
+    DEFAULT_MAX_RETRIES_REQUEUED,
+    DEFAULT_MAX_WORKERS,
+    DEFAULT_MEMORY_THRESHOLD,
+    DEFAULT_MIN_WORKERS,
+    DEFAULT_MODEL_PATH,
+    DEFAULT_QUESTION,
+    DEFAULT_QUEUE_INTERVAL,
+    DEFAULT_QUEUE_SIZE_THRESHOLD_APP,
+    DEFAULT_RETRIES,
+    DEFAULT_SAVE_INTERVAL,
+    DEFAULT_SCALE_DOWN_THRESHOLD,
+    DEFAULT_SCALE_UP_THRESHOLD,
+    DEFAULT_SHUTDOWN_TIMEOUT,
+    DEFAULT_STATS_INTERVAL,
+    DEFAULT_TARGET_QUEUE_SIZE,
+    DEFAULT_TIMEOUT,
+    DEFAULT_WORKSPACE_DIR,
+    LB_RECENT_HISTORY_SIZE,
+    LOG_LEVEL_DEBUG,
+    LOG_LEVEL_ERROR,
+    LOG_LEVEL_INFO,
+    LOG_LEVEL_WARNING,
+    NO_RETRY_ERROR_CODES,
+    PATTERN_ADDRESS,
+    PATTERN_ENDPOINT,
+    PATTERN_KEY,
+    PATTERN_MODEL,
+    PROGRESS_UPDATE_INTERVAL,
+)
+
+# Provider types
+PROVIDER_TYPE_OPENAI_LIKE = "openai_like"
+PROVIDER_TYPE_ANTHROPIC = "anthropic"
+PROVIDER_TYPE_BEDROCK = "bedrock"
+PROVIDER_TYPE_GEMINI = "gemini"
+PROVIDER_TYPE_GOOEY_AI = "gooey_ai"
+PROVIDER_TYPE_STABILITY_AI = "stability_ai"
+PROVIDER_TYPE_VERTEX = "vertex"
+PROVIDER_TYPE_CUSTOM = "custom"
+
+# Service types
+SERVICE_TYPE_GITHUB_API = "github_api"
+SERVICE_TYPE_GITHUB_WEB = "github_web"
+PROVIDER_SERVICE_PREFIX = "provider"
+
+__all__ = [
+    # System configuration
+    "DEFAULT_CONFIG_FILE",
+    "DEFAULT_WORKSPACE_DIR",
+    "APPLICATION_BANNER",
+    "LOG_LEVEL_DEBUG",
+    "LOG_LEVEL_INFO",
+    "LOG_LEVEL_WARNING",
+    "LOG_LEVEL_ERROR",
+    "DEFAULT_BATCH_SIZE",
+    "DEFAULT_SAVE_INTERVAL",
+    "DEFAULT_QUEUE_INTERVAL",
+    "DEFAULT_RETRIES",
+    "DEFAULT_TIMEOUT",
+    "DEFAULT_SHUTDOWN_TIMEOUT",
+    "DEFAULT_STATS_INTERVAL",
+    "DEFAULT_MAX_RETRIES_REQUEUED",
+    "DEFAULT_MEMORY_THRESHOLD",
+    "DEFAULT_ERROR_RATE_THRESHOLD_APP",
+    "DEFAULT_QUEUE_SIZE_THRESHOLD_APP",
+    "ALERT_COOLDOWN_SECONDS",
+    "DEFAULT_MIN_WORKERS",
+    "DEFAULT_MAX_WORKERS",
+    "DEFAULT_TARGET_QUEUE_SIZE",
+    "DEFAULT_ADJUSTMENT_INTERVAL",
+    "DEFAULT_SCALE_UP_THRESHOLD",
+    "DEFAULT_SCALE_DOWN_THRESHOLD",
+    "LB_RECENT_HISTORY_SIZE",
+    "PROGRESS_UPDATE_INTERVAL",
+    # Network configuration
+    "DEFAULT_COMPLETION_PATH",
+    "DEFAULT_MODEL_PATH",
+    "DEFAULT_AUTHORIZATION_HEADER",
+    "DEFAULT_HEADERS",
+    "DEFAULT_QUESTION",
+    "CTX",
+    "NO_RETRY_ERROR_CODES",
+    "PATTERN_KEY",
+    "PATTERN_ADDRESS",
+    "PATTERN_ENDPOINT",
+    "PATTERN_MODEL",
+    # Runtime pipeline and queues
+    "StandardPipelineStage",
+    "DEFAULT_THREAD_COUNTS",
+    "DEFAULT_SEARCH_QUEUE_SIZE",
+    "DEFAULT_GATHER_QUEUE_SIZE",
+    "DEFAULT_CHECK_QUEUE_SIZE",
+    "DEFAULT_INSPECT_QUEUE_SIZE",
+    "QueueStateProvider",
+    "QueueStateStatus",
+    "QueueOperation",
+    "QueueStateField",
+    "QUEUE_STATE_PROVIDER_MULTI",
+    "QUEUE_STATE_MAX_AGE_HOURS",
+    "StatsField",
+    "StatsMapping",
+    "STATS_MAPPINGS",
+    "ResultTypeConfig",
+    "RESULT_TYPE_MAPPINGS",
+    # Search configuration
+    "POPULAR_LANGUAGES",
+    "SIZE_RANGES",
+    "API_MAX_PAGES",
+    "WEB_MAX_PAGES",
+    "API_RESULTS_PER_PAGE",
+    "WEB_RESULTS_PER_PAGE",
+    "API_LIMIT",
+    "WEB_LIMIT",
+    "ALLOWED_OPERATORS",
+    # Monitoring configuration
+    "COLLECTOR_ALERT_SOURCES",
+    "COLLECTOR_CACHE_KEYS",
+    "COLLECTOR_CACHE_TTL",
+    "COLLECTOR_ERROR_TEMPLATES",
+    "FIELD_MAPPINGS",
+    "MONITORING_CONFIG",
+    "MONITORING_THRESHOLDS",
+    # Provider and service types
+    "PROVIDER_TYPE_OPENAI_LIKE",
+    "PROVIDER_TYPE_ANTHROPIC",
+    "PROVIDER_TYPE_BEDROCK",
+    "PROVIDER_TYPE_GEMINI",
+    "PROVIDER_TYPE_GOOEY_AI",
+    "PROVIDER_TYPE_STABILITY_AI",
+    "PROVIDER_TYPE_VERTEX",
+    "PROVIDER_TYPE_CUSTOM",
+    "SERVICE_TYPE_GITHUB_API",
+    "SERVICE_TYPE_GITHUB_WEB",
+    "PROVIDER_SERVICE_PREFIX",
+]
