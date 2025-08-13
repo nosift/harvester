@@ -29,7 +29,7 @@ APPLICATION_BANNER: str = """
 """
 
 # Default intervals and timeouts
-DEFAULT_STATS_INTERVAL: int = 10
+DEFAULT_STATS_INTERVAL: int = 15
 DEFAULT_SHUTDOWN_TIMEOUT: float = 30.0
 
 # Default configuration values

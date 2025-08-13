@@ -24,9 +24,10 @@ from constant.system import (
     DEFAULT_TARGET_QUEUE_SIZE,
     LB_RECENT_HISTORY_SIZE,
 )
-from manager.base import ConditionalTaskManager
 from state.models import WorkerMetrics
 from tools.logger import get_logger
+
+from .base import ConditionalTaskManager
 
 logger = get_logger("manager")
 

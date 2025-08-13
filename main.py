@@ -30,6 +30,7 @@ from core.enums import SystemState
 from manager.monitor import MultiProviderMonitoring, create_monitoring_system
 from manager.shutdown import ShutdownCoordinator
 from manager.task import TaskManager, create_task_manager
+from manager.watcher import StatusLooper
 from manager.worker import WorkerManager, create_worker_manager
 from state.models import (
     ApplicationStatus,
@@ -43,7 +44,6 @@ from state.models import (
 )
 from state.renderer import AppStyleRenderer, MainStyleRenderer, StatusRenderer
 from state.status import StatusManager
-from state.watcher import StatusLooper
 from tools.coordinator import init_managers
 from tools.logger import flush_logs, get_logger, init_logging
 
@@ -146,7 +146,9 @@ class AsyncPipelineApplication:
                 status_manager=self.status_manager,
                 renderer=self.renderer,
                 update_interval=self.stats_display_interval,
-                render_interval=1.0,
+                render_interval=self.stats_display_interval,
+                context=StatusContext.SYSTEM,
+                mode=DisplayMode.STANDARD,
             )
             logger.info("Status looper initialized")
 

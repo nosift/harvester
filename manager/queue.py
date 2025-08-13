@@ -24,11 +24,12 @@ from constant.runtime import (
     StandardPipelineStage,
 )
 from core.tasks import ProviderTask
-from manager.base import PeriodicTaskManager
 from stage.factory import TaskFactory
 from state.models import QueueStateMetrics, QueueStatus
 from storage.atomic import AtomicFileWriter
 from tools.logger import get_logger
+
+from .base import PeriodicTaskManager
 
 logger = get_logger("manager")
 

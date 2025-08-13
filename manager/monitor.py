@@ -14,7 +14,6 @@ from typing import Any, Callable, Dict, List, TypedDict, Union
 from config.schemas import MonitoringConfig
 from constant.monitoring import FIELD_MAPPINGS, MONITORING_CONFIG, MONITORING_THRESHOLDS
 from constant.system import ALERT_COOLDOWN_SECONDS
-from manager.base import PeriodicTaskManager
 from state.models import (
     Alert,
     AlertLevel,
@@ -28,6 +27,8 @@ from state.models import (
 )
 from state.status import StatusManager
 from tools.logger import get_logger
+
+from .base import PeriodicTaskManager
 
 logger = get_logger("manager")
 
