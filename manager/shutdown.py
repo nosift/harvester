@@ -9,9 +9,9 @@ import threading
 import time
 from typing import Any, List, Optional
 
-from .logger import get_logger
+from tools.logger import get_logger
 
-logger = get_logger("shutdown")
+logger = get_logger("manager")
 
 
 class ShutdownCoordinator:
@@ -134,8 +134,13 @@ class ShutdownCoordinator:
                 # Wait for component to stop
                 timeout_start = time.time()
                 while time.time() - timeout_start < component_timeout:
-                    if hasattr(component, "is_running") and not component.is_running():
-                        break
+                    # Check if component is still running
+                    if hasattr(component, "is_running"):
+                        is_running = component.is_running
+                        if callable(is_running):
+                            is_running = is_running()
+                        if not is_running:
+                            break
                     time.sleep(0.1)
                 else:
                     logger.warning(f"Component {component_name} did not stop within timeout")

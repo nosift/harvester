@@ -24,6 +24,7 @@ from constant.system import (
     DEFAULT_TARGET_QUEUE_SIZE,
     LB_RECENT_HISTORY_SIZE,
 )
+from manager.base import ConditionalTaskManager
 from state.models import WorkerMetrics
 from tools.logger import get_logger
 
@@ -143,7 +144,7 @@ class WorkerStats:
     error: Optional[str] = None
 
 
-class WorkerManager:
+class WorkerManager(ConditionalTaskManager):
     """Dynamic worker manager for pipeline thread management"""
 
     def __init__(
@@ -152,6 +153,9 @@ class WorkerManager:
         shutdown_timeout: float = 5.0,
         scaling_strategy: Optional[ScalingStrategy] = None,
     ):
+        # Initialize base class
+        super().__init__("WorkerManager", config.adjustment_interval / 2, shutdown_timeout)
+
         self.worker_metrics: Dict[str, WorkerMetrics] = {}
         self.stages: Dict[str, Any] = {}
 
@@ -173,11 +177,8 @@ class WorkerManager:
             scale_down_threshold=self.scale_down_threshold,
         )
 
-        # Monitoring
-        self.running = False
-        self.balancer_thread: Optional[threading.Thread] = None
+        # Additional lock for worker metrics
         self.lock = threading.Lock()
-        self.shutdown_timeout = float(max(1.0, shutdown_timeout))
 
         # History for trend analysis
         self.metrics_history: Dict[str, deque] = {}
@@ -188,9 +189,6 @@ class WorkerManager:
         # Batch recommendation logging
         self.pending_recommendations: Dict[str, Tuple[int, int]] = {}  # stage -> (current, target)
         self.last_batch_log_time: float = 0.0
-
-        # External completion tracking
-        self._externally_finished = False
 
         logger.info("Initialized worker manager")
 
@@ -228,39 +226,13 @@ class WorkerManager:
                 or hasattr(stage, "set_worker_count")
             )
 
-    def start(self):
-        """Start worker management thread"""
-        if self.running:
-            return
-
-        self.running = True
-        self.balancer_thread = threading.Thread(target=self._balancing_loop, name="load-balancer", daemon=True)
-        self.balancer_thread.start()
-
-        logger.info("Started worker manager")
-
-    def stop(self):
-        """Stop worker management thread"""
-        self.running = False
-
-        if self.balancer_thread and self.balancer_thread.is_alive():
-            self.balancer_thread.join(timeout=self.shutdown_timeout)
-            if self.balancer_thread.is_alive():
-                logger.warning("Worker manager thread did not stop gracefully")
-
-        # Flush any pending recommendations before shutdown
+    def _on_stopped(self) -> None:
+        """Flush pending recommendations when stopped"""
         self._flush_recommendation_batch()
-
-        logger.info("Stopped worker manager")
 
     def _on_task_completion(self) -> None:
         """Handle task manager completion event"""
-        self._externally_finished = True
-        logger.info("WorkerManager marked as finished due to task completion")
-
-    def is_finished(self) -> bool:
-        """Check if worker manager is finished"""
-        return not self.running or self._externally_finished
+        self.mark_finished()
 
     def update_metrics(self, stage_name: str, metrics_data):
         """Update metrics for a specific stage"""
@@ -510,21 +482,15 @@ class WorkerManager:
                 error=str(e),
             )
 
-    def _balancing_loop(self):
-        """Main worker management loop"""
-        while self.running:
-            try:
-                # Check each stage for adjustment needs
-                for stage_name in list(self.worker_metrics.keys()):
-                    if self.should_adjust_workers(stage_name):
-                        self.adjust_workers(stage_name)
+    def _should_execute(self) -> bool:
+        """Check if any stage needs worker adjustment"""
+        return any(self.should_adjust_workers(stage_name) for stage_name in list(self.worker_metrics.keys()))
 
-                # Sleep until next check
-                time.sleep(self.adjustment_interval / 2)
-
-            except Exception as e:
-                logger.error(f"Worker management loop error: {e}")
-                time.sleep(5.0)
+    def _handle_condition(self) -> None:
+        """Handle worker adjustments for stages that need it"""
+        for stage_name in list(self.worker_metrics.keys()):
+            if self.should_adjust_workers(stage_name):
+                self.adjust_workers(stage_name)
 
     def _apply_trend_analysis(self, stage_name: str, target_workers: int) -> int:
         """Apply trend analysis to worker count recommendation"""

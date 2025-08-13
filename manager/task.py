@@ -32,6 +32,7 @@ from tools.coordinator import get_session, get_token
 from tools.logger import get_logger
 from tools.utils import get_service_name
 
+from .base import LifecycleManager
 from .pipeline import Pipeline
 
 logger = get_logger("manager")
@@ -116,14 +117,16 @@ class ProviderFactory:
         return GlobalProviderRegistry.create(provider_type, conditions=conditions, **kwargs)
 
 
-class TaskManager:
+class TaskManager(LifecycleManager):
     """Main task manager for multi-provider coordination"""
 
     def __init__(self, config: Config) -> None:
+        # Initialize base class
+        super().__init__("TaskManager")
+
         self.config = config
         self.providers: Dict[str, Provider] = {}
         self.pipeline: Optional[Pipeline] = None
-        self.running = False
         self.start_time = time.time()
 
         # Cache for provider stages to avoid duplicate construction
@@ -196,7 +199,7 @@ class TaskManager:
         """Initialize all enabled providers from configuration"""
         for task_config in self.config.tasks:
             if not task_config.enabled:
-                logger.info(f"Skipping disabled provider: {task_config.name}")
+                logger.debug(f"Skipping disabled provider: {task_config.name}")
                 continue
 
             try:
@@ -275,11 +278,8 @@ class TaskManager:
 
         logger.info("Created pipeline with all providers")
 
-    def start(self) -> None:
+    def _on_start(self) -> None:
         """Start the task manager and pipeline"""
-        if self.running:
-            return
-
         # 1. Start pipeline (creates ResultManager without backup)
         self.pipeline.start()
 
@@ -309,22 +309,15 @@ class TaskManager:
         if initial_tasks:
             self.pipeline.add_initial_tasks(initial_tasks)
 
-        self.running = True
-
         # Log recovery and startup info
         logger.info(
             f"Started task manager: {recovery_info.total_queue_tasks} queue tasks, {recovery_info.total_result_tasks} result tasks, {len(initial_tasks)} initial tasks"
         )
 
-    def stop(self, timeout: float = 30.0) -> None:
+    def _on_stop(self) -> None:
         """Stop the task manager gracefully"""
-        if not self.running:
-            return
-
-        self.running = False
-
         if self.pipeline:
-            self.pipeline.stop(timeout)
+            self.pipeline.stop()
 
         logger.info("Stopped task manager")
 
@@ -338,7 +331,8 @@ class TaskManager:
 
     def is_finished(self) -> bool:
         """Check if task manager is finished processing all tasks"""
-        if not self.running:
+        # Check base class conditions first
+        if super().is_finished():
             return True
 
         if not self.pipeline:

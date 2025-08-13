@@ -11,7 +11,14 @@ from typing import List, Tuple
 
 from tools.logger import get_logger
 
-from .segment import CharClassSegment, EnumerationStrategy, FixedSegment, GroupSegment, OptionalSegment, Segment
+from .segment import (
+    CharClassSegment,
+    EnumerationStrategy,
+    FixedSegment,
+    GroupSegment,
+    OptionalSegment,
+    Segment,
+)
 
 logger = get_logger("refine")
 

@@ -9,11 +9,12 @@ import random
 import threading
 import time
 from collections import OrderedDict, deque
-from typing import Any, Callable, Dict, List, Optional, TypedDict, Union
+from typing import Any, Callable, Dict, List, TypedDict, Union
 
 from config.schemas import MonitoringConfig
 from constant.monitoring import FIELD_MAPPINGS, MONITORING_CONFIG, MONITORING_THRESHOLDS
 from constant.system import ALERT_COOLDOWN_SECONDS
+from manager.base import PeriodicTaskManager
 from state.models import (
     Alert,
     AlertLevel,
@@ -164,18 +165,16 @@ class AlertManager:
             del self.alert_ttl_index[key]
 
 
-class MultiProviderMonitoring:
+class MultiProviderMonitoring(PeriodicTaskManager):
     """Main monitoring system for multi-provider pipeline"""
 
     def __init__(self, config: MonitoringConfig):
+        # Initialize base class
+        super().__init__("MultiProviderMonitoring", config.update_interval)
+
         self.provider_stats: Dict[str, ProviderStatus] = {}
         self.pipeline_stats = PipelineStatus()
         self.alert_manager = AlertManager(config)
-
-        # Monitoring thread
-        self.monitoring_thread: Optional[threading.Thread] = None
-        self.running = False
-        self.update_interval = config.update_interval
 
         # Statistics history for trend analysis
         self.stats_history: deque = deque(maxlen=MONITORING_THRESHOLDS.get("max_stats_history", 100))
@@ -184,45 +183,20 @@ class MultiProviderMonitoring:
         # Add default console alert handler
         self.alert_manager.add_handler(self._console_alert_handler)
 
-        # External completion tracking
-        self._externally_finished = False
-
         logger.info("Initialized multi-provider monitoring")
 
-    def start(self) -> None:
-        """Start monitoring thread"""
-        if self.running:
-            return
-
-        self.running = True
+    def _on_start(self) -> None:
+        """Initialize pipeline stats when starting"""
         self.pipeline_stats.is_running = True
         self.pipeline_stats.start = time.monotonic()
 
-        self.monitoring_thread = threading.Thread(target=self._monitoring_loop, name="monitoring-thread", daemon=True)
-        self.monitoring_thread.start()
-
-        logger.info("Started monitoring system")
-
-    def stop(self) -> None:
-        """Stop monitoring thread"""
-        self.running = False
+    def _on_stop(self) -> None:
+        """Update pipeline stats when stopping"""
         self.pipeline_stats.is_running = False
-
-        if self.monitoring_thread and self.monitoring_thread.is_alive():
-            self.monitoring_thread.join(timeout=2.0)
-            if self.monitoring_thread.is_alive():
-                logger.warning("Monitoring thread did not stop gracefully")
-
-        logger.info("Stopped monitoring system")
 
     def _on_task_completion(self) -> None:
         """Handle task manager completion event"""
-        self._externally_finished = True
-        logger.info("MultiProviderMonitoring marked as finished due to task completion")
-
-    def is_finished(self) -> bool:
-        """Check if monitoring system is finished"""
-        return not self.running or self._externally_finished
+        self.mark_finished()
 
     def update_provider_stats(
         self, provider_name: str, stats_data: Union[ProviderStatsUpdate, StatsDataSource]
@@ -300,26 +274,17 @@ class MultiProviderMonitoring:
                 throughput=total_completed / max(runtime, 1),
             )
 
-    def _monitoring_loop(self) -> None:
-        """Main monitoring loop"""
-        while self.running:
-            try:
-                # Collect current stats
-                current_stats = self.current_stats()
+    def _execute_periodic_task(self) -> None:
+        """Execute monitoring task"""
+        # Collect current stats
+        current_stats = self.current_stats()
 
-                # Store in history
-                with self.lock:
-                    self.stats_history.append(current_stats)
+        # Store in history
+        with self.lock:
+            self.stats_history.append(current_stats)
 
-                # Check for alerts
-                self.alert_manager.check_alerts(self.provider_stats, self.pipeline_stats)
-
-                # Sleep until next update
-                time.sleep(self.update_interval)
-
-            except Exception as e:
-                logger.error(f"Monitoring loop error: {e}")
-                time.sleep(1.0)
+        # Check for alerts
+        self.alert_manager.check_alerts(self.provider_stats, self.pipeline_stats)
 
     def _console_alert_handler(self, alert: Alert) -> None:
         """Default console alert handler"""

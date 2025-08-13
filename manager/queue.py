@@ -24,6 +24,7 @@ from constant.runtime import (
     StandardPipelineStage,
 )
 from core.tasks import ProviderTask
+from manager.base import PeriodicTaskManager
 from stage.factory import TaskFactory
 from state.models import QueueStateMetrics, QueueStatus
 from storage.atomic import AtomicFileWriter
@@ -119,10 +120,13 @@ class QueueStateInfo:
         )
 
 
-class QueueManager:
+class QueueManager(PeriodicTaskManager):
     """Type-safe queue manager with enum-based stage management"""
 
     def __init__(self, workspace: str, save_interval: float = 60.0, shutdown_timeout: float = 5.0):
+        # Initialize base class
+        super().__init__("QueueManager", save_interval, shutdown_timeout)
+
         # Create configuration
         self.config = QueueConfig.from_workspace(workspace, save_interval=save_interval)
 
@@ -132,12 +136,8 @@ class QueueManager:
         # Thread safety
         self.lock = threading.Lock()
 
-        # Periodic save
-        self.running = True
-        self.save_thread = None
-
-        # Unified shutdown timeout for join operations
-        self.shutdown_timeout = float(max(1.0, shutdown_timeout))
+        # Stages to save (set by start_periodic_save)
+        self.stages = None
 
         logger.info(f"Initialized type-safe queue manager at: {self.config.persistence_dir}")
 
@@ -157,14 +157,8 @@ class QueueManager:
 
     def start_periodic_save(self, stages: Dict[str, Any]) -> None:
         """Start periodic queue state saving"""
-        if self.save_thread and self.save_thread.is_alive():
-            return
-
         self.stages = stages
-        self.save_thread = threading.Thread(target=self._periodic_save_loop, daemon=True)
-        self.save_thread.start()
-
-        logger.info(f"Started periodic queue saving (interval: {self.config.save_interval}s)")
+        self.start()  # Use base class start method
 
     def save_queue_state(self, stage: Union[StandardPipelineStage, str], task_list: List[ProviderTask]) -> None:
         """Type-safe save queue state for a specific stage"""
@@ -448,25 +442,10 @@ class QueueManager:
             ),
         )
 
-    def stop(self) -> None:
-        """Stop the queue manager"""
-        self.running = False
-        if self.save_thread and self.save_thread.is_alive():
-            self.save_thread.join(timeout=self.shutdown_timeout)
-
-        logger.info("Stopped queue manager")
-
-    def _periodic_save_loop(self) -> None:
-        """Periodic save loop"""
-        while self.running:
-            try:
-                time.sleep(self.config.save_interval)
-
-                if hasattr(self, "stages") and self.stages:
-                    self.save_all_queues(self.stages)
-
-            except Exception as e:
-                logger.error(f"Error in periodic queue save: {e}")
+    def _execute_periodic_task(self) -> None:
+        """Execute periodic queue save task"""
+        if self.stages:
+            self.save_all_queues(self.stages)
 
     def _save_empty_state(self, stage: StandardPipelineStage) -> None:
         """Save empty state to indicate clean stage with type safety"""

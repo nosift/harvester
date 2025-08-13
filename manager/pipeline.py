@@ -24,19 +24,24 @@ from tools.coordinator import get_session, get_token, get_user_agent
 from tools.logger import get_logger
 from tools.ratelimit import RateLimiter
 
+from .base import LifecycleManager
 from .queue import QueueManager
 
 logger = get_logger("manager")
 
 
-class Pipeline(PipelineBase, StageRegistryMixin):
+class Pipeline(PipelineBase, StageRegistryMixin, LifecycleManager):
     """Dynamic pipeline coordinator with registry-based stage management
 
-    Inherits from PipelineBase to provide type-safe statistics interface
-    and from StageRegistryMixin for stage management capabilities.
+    Inherits from PipelineBase to provide type-safe statistics interface,
+    from StageRegistryMixin for stage management capabilities,
+    and from LifecycleManager for lifecycle management.
     """
 
     def __init__(self, config: Config, providers: Dict[str, ProviderInterface]):
+        # Initialize base classes
+        LifecycleManager.__init__(self, "Pipeline")
+
         self.config = config
         self.providers: Dict[str, ProviderInterface] = providers
 
@@ -87,7 +92,6 @@ class Pipeline(PipelineBase, StageRegistryMixin):
         # Statistics and completion tracking
         self.start_time = time.time()
         self.initial_tasks_count = 0
-        self._logged_completion = False
 
         logger.info(f"Initialized dynamic pipeline with {len(self.stages)} stages: {list(self.stages.keys())}")
 
@@ -159,7 +163,7 @@ class Pipeline(PipelineBase, StageRegistryMixin):
                 logger.error(f"Failed to create stage {stage_name}: {e}")
                 raise
 
-    def start(self) -> None:
+    def _on_start(self) -> None:
         """Start all pipeline stages"""
         if not self.stages:
             logger.warning("No stages to start")
@@ -178,19 +182,14 @@ class Pipeline(PipelineBase, StageRegistryMixin):
 
         logger.info(f"Started {len(self.stages)} pipeline stages")
 
-    def stop(self, timeout: float = 30.0) -> None:
+    def _on_stop(self) -> None:
         """Stop all pipeline stages"""
-        # Stop completion monitoring
-        self.completion_check_running = False
-        if self.completion_check_thread and self.completion_check_thread.is_alive():
-            self.completion_check_thread.join(timeout=5.0)
-
         if not self.stages:
             return
 
         # Stop stages in reverse dependency order
         ordered_stages = self.get_order()
-        stage_timeout = timeout / len(self.stages) if self.stages else timeout
+        stage_timeout = 30.0 / len(self.stages) if self.stages else 30.0
 
         for stage_name in reversed(ordered_stages):
             stage = self.stages.get(stage_name)
@@ -225,11 +224,6 @@ class Pipeline(PipelineBase, StageRegistryMixin):
             # Check if stage is finished
             if not stage.is_finished():
                 all_finished = False
-
-        # Log completion once
-        if all_finished and not getattr(self, "_logged_completion", False):
-            logger.info("All stages completed, pipeline finished")
-            self._logged_completion = True
 
         return all_finished
 

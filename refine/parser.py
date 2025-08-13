@@ -9,7 +9,13 @@ from typing import List, Optional, Set, Tuple, Union
 
 from tools.logger import get_logger
 
-from .segment import CharClassSegment, FixedSegment, GroupSegment, OptionalSegment, Segment
+from .segment import (
+    CharClassSegment,
+    FixedSegment,
+    GroupSegment,
+    OptionalSegment,
+    Segment,
+)
 
 logger = get_logger("refine")
 

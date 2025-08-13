@@ -28,6 +28,7 @@ from constant.system import (
 )
 from core.enums import SystemState
 from manager.monitor import MultiProviderMonitoring, create_monitoring_system
+from manager.shutdown import ShutdownCoordinator
 from manager.task import TaskManager, create_task_manager
 from manager.worker import WorkerManager, create_worker_manager
 from state.models import (
@@ -45,7 +46,6 @@ from state.status import StatusManager
 from state.watcher import StatusLooper
 from tools.coordinator import init_managers
 from tools.logger import flush_logs, get_logger, init_logging
-from tools.shutdown import ShutdownCoordinator
 
 logger = get_logger("main")
 
