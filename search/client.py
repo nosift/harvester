@@ -480,7 +480,18 @@ def search_api_with_count(
 ) -> Tuple[List[str], int, str]:
     """
     Search GitHub API and return results, total count, and raw content.
-    Returns: (results_list, total_count, raw_content)
+
+    Args:
+        query: Search query string
+        token: GitHub API token for authentication
+        page: Page number to retrieve (default: 1)
+        peer_page: Results per page (default: API_RESULTS_PER_PAGE)
+
+    Returns:
+        Tuple containing:
+        - List[str]: List of GitHub URLs found
+        - int: Total count of results available
+        - str: Raw JSON response content
     """
     if isblank(token) or isblank(query):
         return [], 0, ""
@@ -711,7 +722,20 @@ def collect(
     model_pattern: str = "",
     text: Optional[str] = None,
 ) -> List[Service]:
-    """Extract API keys and related information from URLs or text content"""
+    """Extract API keys and related information from URLs or text content
+
+    Args:
+        key_pattern: Regex pattern to match API keys
+        url: URL to fetch content from (if text not provided)
+        retries: Number of retry attempts for HTTP requests
+        address_pattern: Regex pattern to match service addresses
+        endpoint_pattern: Regex pattern to match endpoints
+        model_pattern: Regex pattern to match model names
+        text: Text content to search (if provided, url is ignored)
+
+    Returns:
+        List[Service]: List of Service objects with extracted information
+    """
     if (not isinstance(url, str) and not isinstance(text, str)) or not isinstance(key_pattern, str):
         return []
 

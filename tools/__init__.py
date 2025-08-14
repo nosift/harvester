@@ -34,6 +34,14 @@ from .coordinator import (
 from .credential import Credentials
 from .logger import Logger
 
+# Regex patterns for performance
+from .patterns import (
+    COMPILED_API_KEY_PATTERNS,
+    extract_github_query_pattern,
+    redact_api_key,
+    redact_api_keys_in_text,
+)
+
 # Rate limiting tools
 from .ratelimit import AsyncRateLimiter, RateLimiter, TokenBucket, create_rate_limiter
 
@@ -63,6 +71,11 @@ __all__ = [
     "Agents",
     # Generic load balancing
     "Balancer",
+    # Regex patterns
+    "COMPILED_API_KEY_PATTERNS",
+    "extract_github_query_pattern",
+    "redact_api_key",
+    "redact_api_keys_in_text",
     # Coordinator and resource management
     "ResourceManager",
     "get_credential",

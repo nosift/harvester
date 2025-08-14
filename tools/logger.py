@@ -24,7 +24,6 @@ import logging
 import logging.handlers
 import os
 import platform
-import re
 import sys
 import time
 from datetime import datetime
@@ -33,6 +32,8 @@ from typing import Any, Dict, Optional
 
 from constant.system import DEFAULT_LOG_CLEANUP_DELETE
 from core.models import LogFileInfo, LoggingStats
+
+from .patterns import redact_api_keys_in_text
 
 # ANSI color codes for different log levels
 COLORS = {
@@ -102,20 +103,8 @@ class ColoredFormatter(logging.Formatter):
 class APIKeyRedactionFormatter(logging.Formatter):
     """Custom formatter that redacts API keys in log messages"""
 
-    # API key patterns to match
-    API_KEY_PATTERNS = [
-        r"\bAIza[0-9A-Za-z_-]{35}",  # Google API keys (Gemini)
-        r"\bsk-[0-9A-Za-z_-]{20,}",  # OpenAI and sk- prefixed keys
-        r"\bsk-proj-[0-9A-Za-z_-]{20,}",  # OpenAI project keys
-        r"\banthrop[0-9A-Za-z_-]{20,}",  # Anthropic keys
-        r"\bgsk_[0-9A-Za-z_-]{20,}",  # GooeyAI keys
-        r"\bstab_[0-9A-Za-z_-]{20,}",  # StabilityAI keys
-    ]
-
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        # Compile regex patterns for better performance
-        self.compiled_patterns = [re.compile(pattern) for pattern in self.API_KEY_PATTERNS]
 
     def format(self, record: logging.LogRecord) -> str:
         # Format the record normally first
@@ -126,25 +115,12 @@ class APIKeyRedactionFormatter(logging.Formatter):
     def _redact_api_keys_in_message(self, message: str) -> str:
         """Replace API keys in log message with redacted versions"""
         try:
-            for pattern in self.compiled_patterns:
-
-                def replace_key(match):
-                    key = match.group(0)
-                    return self._redact_key_for_logging(key)
-
-                message = pattern.sub(replace_key, message)
-            return message
+            return redact_api_keys_in_text(message)
         except Exception as e:
             # Log the error but do not expose the original message
             logger = logging.getLogger(__name__)
             logger.error(f"Error redacting API keys in log: {e}")
             return "[LOG_REDACTION_ERROR]"
-
-    def _redact_key_for_logging(self, key: str) -> str:
-        """Redact API key for safe logging (show first 6 and last 6 characters)"""
-        if len(key) <= 12:
-            return "*" * len(key)
-        return f"{key[:6]}...{key[-6:]}"
 
 
 # JSON formatter for structured file logs (optional)
@@ -182,31 +158,14 @@ def _is_tty() -> bool:
 class RedactionFilter(logging.Filter):
     """Filter that redacts API keys in log records before formatting."""
 
-    API_KEY_PATTERNS = [
-        r"\bAIza[0-9A-Za-z_-]{35}",
-        r"\bsk-[0-9A-Za-z_-]{20,}",
-        r"\bsk-proj-[0-9A-Za-z_-]{20,}",
-        r"\banthrop[0-9A-Za-z_-]{20,}",
-        r"\bgsk_[0-9A-Za-z_-]{20,}",
-        r"\bstab_[0-9A-Za-z_-]{20,}",
-    ]
-
     def __init__(self) -> None:
         super().__init__()
-        self._compiled = [re.compile(p) for p in self.API_KEY_PATTERNS]
-
-    @staticmethod
-    def _redact_key(key: str) -> str:
-        if len(key) <= 12:
-            return "*" * len(key)
-        return f"{key[:6]}...{key[-6:]}"
 
     def filter(self, record: logging.LogRecord) -> bool:
         try:
             # Redact in message
             msg = record.getMessage()
-            for pattern in self._compiled:
-                msg = pattern.sub(lambda m: self._redact_key(m.group(0)), msg)
+            msg = redact_api_keys_in_text(msg)
             # We cannot assign to getMessage(); update 'msg' only if it is a string
             if isinstance(record.msg, str):
                 record.msg = msg
@@ -216,9 +175,7 @@ class RedactionFilter(logging.Filter):
                 if hasattr(record, key):
                     value = getattr(record, key)
                     if isinstance(value, str):
-                        redacted = value
-                        for pattern in self._compiled:
-                            redacted = pattern.sub(lambda m: self._redact_key(m.group(0)), redacted)
+                        redacted = redact_api_keys_in_text(value)
                         setattr(record, key, redacted)
             return True
         except Exception:
@@ -291,20 +248,8 @@ class LazyRotatingFileHandler(logging.handlers.RotatingFileHandler):
 class FileFormatterWithRedaction(logging.Formatter):
     """File formatter that combines clean formatting with API key redaction"""
 
-    # API key patterns to match
-    API_KEY_PATTERNS = [
-        r"\bAIza[0-9A-Za-z_-]{35}",  # Google API keys (Gemini)
-        r"\bsk-[0-9A-Za-z_-]{20,}",  # OpenAI and sk- prefixed keys
-        r"\bsk-proj-[0-9A-Za-z_-]{20,}",  # OpenAI project keys
-        r"\banthrop[0-9A-Za-z_-]{20,}",  # Anthropic keys
-        r"\bgsk_[0-9A-Za-z_-]{20,}",  # GooeyAI keys
-        r"\bstab_[0-9A-Za-z_-]{20,}",  # StabilityAI keys
-    ]
-
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        # Compile regex patterns for better performance
-        self.compiled_patterns = [re.compile(pattern) for pattern in self.API_KEY_PATTERNS]
 
     def format(self, record: logging.LogRecord) -> str:
         # Create file location string
@@ -317,23 +262,10 @@ class FileFormatterWithRedaction(logging.Formatter):
     def _redact_api_keys_in_message(self, message: str) -> str:
         """Replace API keys in log message with redacted versions"""
         try:
-            for pattern in self.compiled_patterns:
-
-                def replace_key(match):
-                    key = match.group(0)
-                    return self._redact_key_for_logging(key)
-
-                message = pattern.sub(replace_key, message)
-            return message
+            return redact_api_keys_in_text(message)
         except Exception:
             # Return original message if redaction fails
             return message
-
-    def _redact_key_for_logging(self, key: str) -> str:
-        """Redact API key for safe logging (show first 6 and last 6 characters)"""
-        if len(key) <= 12:
-            return "*" * len(key)
-        return f"{key[:6]}...{key[-6:]}"
 
 
 FILE_FORMATTER = FileFormatterWithRedaction("%(asctime)s | %(levelname)-8s | %(fileloc)-30s | %(message)s")

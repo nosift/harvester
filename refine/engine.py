@@ -10,6 +10,7 @@ from typing import List, Optional
 
 from constant.search import ALLOWED_OPERATORS, POPULAR_LANGUAGES, SIZE_RANGES
 from tools.logger import get_logger
+from tools.patterns import extract_github_query_pattern
 from tools.utils import handle_exceptions
 
 from .config import RefineEngineConfig
@@ -315,11 +316,9 @@ class RefineEngine:
     def can_split_safely(self, query: str, recursion_depth: int = 0) -> tuple[bool, str]:
         """Check if a query can be split safely without infinite loops."""
         # Extract pattern from GitHub search format
-        match = re.search(r"/([^/]+)/", query)
-        if not match:
+        pattern = extract_github_query_pattern(query)
+        if not pattern:
             return False, "No regex pattern found in query"
-
-        pattern = match.group(1)
 
         try:
             segments = self.parser.parse(pattern)
