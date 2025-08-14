@@ -478,7 +478,7 @@ class Logger:
         Logger._logs_dir = Path("logs")
 
         # Main log file (all levels) - without timestamp
-        main_log_file = Logger._logs_dir / "pipeline.log"
+        main_log_file = Logger._logs_dir / "main.log"
         Logger._file_handler = LazyRotatingFileHandler(
             main_log_file, max_bytes=50 * 1024 * 1024, backup_count=10, encoding="utf-8"  # 50MB
         )

@@ -18,16 +18,44 @@ from .segment import (
     OptionalSegment,
     Segment,
 )
-from .types import IEnumerationOptimizer
+from .strategies import (
+    AggressiveStrategy,
+    BalancedStrategy,
+    ConservativeStrategy,
+    GreedyStrategy,
+)
+from .types import IEnumerationOptimizer, IOptimizationStrategy
 
 logger = get_logger("refine")
 
 
 class EnumerationOptimizer(IEnumerationOptimizer):
-    """Optimize enumeration strategy for regex patterns."""
+    """Optimize enumeration strategy for regex patterns using pluggable strategies."""
 
-    def __init__(self, max_queries: int = 100000000):
+    def __init__(self, max_queries: int = 100000000, strategy: IOptimizationStrategy = None):
         self.max_queries = max_queries
+        self.strategy = strategy or BalancedStrategy(max_queries)
+
+        # Available strategies for dynamic switching
+        self.strategies = {
+            "greedy": GreedyStrategy(max_queries),
+            "balanced": BalancedStrategy(max_queries),
+            "conservative": ConservativeStrategy(max_queries),
+            "aggressive": AggressiveStrategy(max_queries),
+        }
+
+    def set_strategy(self, strategy_name: str) -> None:
+        """Set optimization strategy by name."""
+        if strategy_name in self.strategies:
+            self.strategy = self.strategies[strategy_name]
+            logger.info(f"Switched to {strategy_name} optimization strategy")
+        else:
+            logger.warning(f"Unknown strategy: {strategy_name}, keeping current strategy")
+
+    def set_custom_strategy(self, strategy: IOptimizationStrategy) -> None:
+        """Set custom optimization strategy."""
+        self.strategy = strategy
+        logger.info(f"Set custom optimization strategy: {strategy.__class__.__name__}")
 
     def optimize(self, segments: List[Segment]) -> EnumerationStrategy:
         """Find optimal enumeration strategy."""
@@ -332,7 +360,7 @@ class EnumerationOptimizer(IEnumerationOptimizer):
 
         # Take top 80% of reasonable size, but ensure we don't lose valuable variants
         target_size = min(1000, max(100, len(variants) // 2))
-        optimized = [variant for score, variant in scored_variants[:target_size]]
+        optimized = [variant for _, variant in scored_variants[:target_size]]
 
         logger.info(f"Selected {len(optimized)} highest-value variants from {len(variants)}")
         return optimized
@@ -428,69 +456,29 @@ class EnumerationOptimizer(IEnumerationOptimizer):
             return 0.0
 
     def _select_combination(self, vars: List[CharClassSegment], all_segments: List[Segment]) -> EnumerationStrategy:
-        """Select best enumeration combination."""
+        """Select best enumeration combination using current strategy."""
         if not vars:
             return EnumerationStrategy([], all_segments, 0.0, 1)
 
-        # Sort by value descending
-        sorted_segs = sorted(vars, key=lambda s: s.value, reverse=True)
+        # Use strategy to select segments
+        selected_segments = self.strategy.select_segments(vars)
 
-        best_strategy = EnumerationStrategy([], all_segments, 0.0, 1)
+        if not selected_segments:
+            return EnumerationStrategy([], all_segments, 0.0, 1)
 
-        # Try single segment enumeration
-        for segment in sorted_segs:
-            # Calculate optimal enumeration depth based on segment characteristics
-            optimal_depth = self._calculate_segment_optimal_depth(segment)
-            queries = len(segment.charset) ** optimal_depth if optimal_depth > 0 else 1
-
-            # Consider this strategy if it's valuable and feasible
-            if self._is_strategy_feasible(queries) and segment.value > best_strategy.value:
-                best_strategy = EnumerationStrategy([segment], all_segments, segment.value, queries)
-
-        # Try multi-segment combinations with intelligent depth selection
-        max_combo_size = min(3, len(sorted_segs))  # Reasonable limit for combinations
-        for combo_size in range(2, max_combo_size + 1):
-            for combo in itertools.combinations(sorted_segs, combo_size):
-                total_queries, total_value = self._evaluate_combination(combo)
-
-                if self._is_strategy_feasible(total_queries) and total_value > best_strategy.value:
-                    best_strategy = EnumerationStrategy(list(combo), all_segments, total_value, total_queries)
+        # Calculate queries and value using strategy
+        total_queries, total_value = self.strategy.evaluate_combination(selected_segments)
 
         logger.info(
-            f"Selected strategy: {len(best_strategy.segments)} segments, "
-            f"value={best_strategy.value:.3f}, queries={best_strategy.queries}"
+            f"Selected strategy ({self.strategy.__class__.__name__}): {len(selected_segments)} segments, "
+            f"value={total_value:.3f}, queries={total_queries}"
         )
 
-        return best_strategy
+        return EnumerationStrategy(selected_segments, all_segments, total_value, total_queries)
 
     def _calculate_segment_optimal_depth(self, segment: CharClassSegment) -> int:
-        """Calculate optimal enumeration depth for a single segment."""
-        charset_size = len(segment.charset)
-
-        if charset_size == 0:
-            return 0
-
-        # Base depth on enumeration value and charset characteristics
-        if segment.value > 15:  # Very high value
-            base_depth = 3
-        elif segment.value > 8:  # High value
-            base_depth = 2
-        else:  # Medium/low value
-            base_depth = 1
-
-        # Adjust based on charset size
-        if charset_size <= 10:  # Small charset, can afford deeper enumeration
-            depth = min(base_depth + 1, 4)
-        elif charset_size <= 30:  # Medium charset
-            depth = base_depth
-        else:  # Large charset, use shallower enumeration
-            depth = max(1, base_depth - 1)
-
-        # Don't enumerate more than minimum required length
-        if hasattr(segment, "min_length") and segment.min_length > 0:
-            depth = min(depth, segment.min_length)
-
-        return depth
+        """Calculate optimal enumeration depth using current strategy."""
+        return self.strategy.calculate_depth(segment)
 
     def _is_strategy_feasible(self, query_count: int) -> bool:
         """Check if a strategy with given query count is feasible."""
@@ -505,20 +493,5 @@ class EnumerationOptimizer(IEnumerationOptimizer):
         )
 
     def _evaluate_combination(self, combo: tuple) -> Tuple[int, float]:
-        """Evaluate a combination of segments for total queries and value."""
-        total_queries = 1
-        total_value = 0.0
-
-        for segment in combo:
-            # Use intelligent depth calculation
-            depth = max(1, self._calculate_segment_optimal_depth(segment) - 1)  # Reduce for combinations
-            segment_queries = len(segment.charset) ** depth
-
-            total_queries *= segment_queries
-            total_value += segment.value
-
-            # Early termination if queries become too large
-            if total_queries > self.max_queries * 100:  # Much more generous limit
-                break
-
-        return total_queries, total_value
+        """Evaluate a combination of segments using current strategy."""
+        return self.strategy.evaluate_combination(list(combo))

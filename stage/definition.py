@@ -51,12 +51,27 @@ class SearchStage(BasePipelineStage):
         """Generate unique task identifier for deduplication"""
         return f"{StandardPipelineStage.SEARCH.value}:{task.provider}:{getattr(task, 'query', '')}:{getattr(task, 'page', 1)}:{getattr(task, 'regex', '')}"
 
-    def process_task(self, task: ProviderTask) -> Optional[StageOutput]:
-        """Process search task with pure functional approach"""
-        if not isinstance(task, SearchTask):
-            logger.error(f"[{self.name}] invalid task type: {type(task)}")
-            return None
+    def _validate_task_type(self, task: ProviderTask) -> bool:
+        """Validate that task is a SearchTask."""
+        return isinstance(task, SearchTask)
 
+    def _pre_process(self, task: ProviderTask) -> bool:
+        """Pre-process search task - validate query and provider."""
+
+        # Check if provider is enabled
+        if not self.resources.is_enabled(task.provider, "search"):
+            logger.debug(f"[{self.name}] search disabled for provider: {task.provider}")
+            return False
+
+        # Validate query
+        if not getattr(task, "query", None):
+            logger.warning(f"[{self.name}] empty query for provider: {task.provider}")
+            return False
+
+        return True
+
+    def _execute_task(self, task: ProviderTask) -> Optional[StageOutput]:
+        """Execute search task processing."""
         return self._search_worker(task)
 
     def _search_worker(self, task: SearchTask) -> Optional[StageOutput]:
@@ -283,12 +298,12 @@ class AcquisitionStage(BasePipelineStage):
         """Generate unique task identifier for deduplication"""
         return f"{StandardPipelineStage.GATHER.value}:{task.provider}:{getattr(task, 'url', '')}"
 
-    def process_task(self, task: ProviderTask) -> Optional[StageOutput]:
-        """Process acquisition task with pure functional approach"""
-        if not isinstance(task, AcquisitionTask):
-            logger.error(f"[{self.name}] invalid task type: {type(task)}")
-            return None
+    def _validate_task_type(self, task: ProviderTask) -> bool:
+        """Validate that task is an AcquisitionTask."""
+        return isinstance(task, AcquisitionTask)
 
+    def _execute_task(self, task: ProviderTask) -> Optional[StageOutput]:
+        """Execute acquisition task processing."""
         return self._acquisition_worker(task)
 
     def _acquisition_worker(self, task: AcquisitionTask) -> Optional[StageOutput]:
@@ -346,12 +361,12 @@ class CheckStage(BasePipelineStage):
 
         return f"{StandardPipelineStage.CHECK.value}:{task.provider}:unknown"
 
-    def process_task(self, task: ProviderTask) -> Optional[StageOutput]:
-        """Process check task with pure functional approach"""
-        if not isinstance(task, CheckTask):
-            logger.error(f"[{self.name}] invalid task type: {type(task)}")
-            return None
+    def _validate_task_type(self, task: ProviderTask) -> bool:
+        """Validate that task is a CheckTask."""
+        return isinstance(task, CheckTask)
 
+    def _execute_task(self, task: ProviderTask) -> Optional[StageOutput]:
+        """Execute check task processing."""
         return self._check_worker(task)
 
     def _check_worker(self, task: CheckTask) -> Optional[StageOutput]:
@@ -441,12 +456,12 @@ class InspectStage(BasePipelineStage):
 
         return f"{StandardPipelineStage.INSPECT.value}:{task.provider}:unknown"
 
-    def process_task(self, task: ProviderTask) -> Optional[StageOutput]:
-        """Process inspect task with pure functional approach"""
-        if not isinstance(task, InspectTask):
-            logger.error(f"[{self.name}] invalid task type: {type(task)}")
-            return None
+    def _validate_task_type(self, task: ProviderTask) -> bool:
+        """Validate that task is an InspectTask."""
+        return isinstance(task, InspectTask)
 
+    def _execute_task(self, task: ProviderTask) -> Optional[StageOutput]:
+        """Execute inspect task processing."""
         return self._inspect_worker(task)
 
     def _inspect_worker(self, task: InspectTask) -> Optional[StageOutput]:

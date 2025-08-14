@@ -282,10 +282,52 @@ class BasePipelineStage(ABC):
         """Stop accepting new tasks"""
         self.accepting = False
 
-    @abstractmethod
     def process_task(self, task: ProviderTask) -> Optional[StageOutput]:
-        """Process a single task - pure functional implementation"""
+        """Template method for task processing with common workflow."""
+        # Step 1: Validate task type
+        if not self._validate_task_type(task):
+            logger.error(f"[{self.name}] invalid task type: {type(task)}")
+            return None
+
+        # Step 2: Pre-processing hook
+        if not self._pre_process(task):
+            return None
+
+        # Step 3: Execute core processing (implemented by subclasses)
+        try:
+            result = self._execute_task(task)
+
+            # Step 4: Post-processing hook
+            if result:
+                result = self._post_process(task, result)
+
+            return result
+
+        except Exception as e:
+            logger.error(f"[{self.name}] task processing failed: {e}")
+            return self._handle_processing_error(task, e)
+
+    @abstractmethod
+    def _validate_task_type(self, task: ProviderTask) -> bool:
+        """Validate that the task is of the correct type for this stage."""
         pass
+
+    @abstractmethod
+    def _execute_task(self, task: ProviderTask) -> Optional[StageOutput]:
+        """Execute the core task processing logic."""
+        pass
+
+    def _pre_process(self, task: ProviderTask) -> bool:
+        """Pre-processing hook. Return False to skip processing."""
+        return True
+
+    def _post_process(self, task: ProviderTask, result: StageOutput) -> StageOutput:
+        """Post-processing hook. Can modify the result."""
+        return result
+
+    def _handle_processing_error(self, task: ProviderTask, error: Exception) -> Optional[StageOutput]:
+        """Handle processing errors. Return None by default."""
+        return None
 
     @abstractmethod
     def _generate_id(self, task: ProviderTask) -> str:
