@@ -34,25 +34,6 @@ class CheckResult:
 
 
 class IAuthProvider(Protocol):
-    """Protocol for providing authentication artifacts and User-Agent.
-
-    This decouples stages from upper-layer manager.coordinator module.
-    """
-
-    def get_session(self) -> Optional[str]:
-        """Get GitHub web session token."""
-        ...
-
-    def get_token(self) -> Optional[str]:
-        """Get GitHub API token."""
-        ...
-
-    def get_user_agent(self) -> str:
-        """Get User-Agent string."""
-        ...
-
-
-class IResourceProvider(Protocol):
     """Protocol for resource management with dependency injection support.
 
     This interface defines the contract for resource providers that can be

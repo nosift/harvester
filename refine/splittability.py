@@ -43,7 +43,7 @@ class SplittabilityAnalyzer(ISplittabilityAnalyzer):
         self.min_enumeration_value = min_enumeration_value
         self.max_resource_cost = max_resource_cost
 
-    def can_split_further(
+    def can_split(
         self,
         pattern: str,
         segments: List[Segment],

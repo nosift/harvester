@@ -24,7 +24,7 @@ class ISplittabilityAnalyzer(ABC):
     """Interface for pattern splittability analysis."""
 
     @abstractmethod
-    def can_split_further(self, pattern: str, segments: List[Segment], current_depth: int = 0) -> Tuple[bool, str]:
+    def can_split(self, pattern: str, segments: List[Segment], current_depth: int = 0) -> Tuple[bool, str]:
         """Determine if pattern can be split further."""
         pass
 

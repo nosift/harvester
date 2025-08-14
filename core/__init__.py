@@ -19,7 +19,7 @@ Design Principles:
 """
 
 # Authentication services
-from .auth import AuthService, GithubAuthProvider, configure_auth, get_auth_provider
+from .auth import GithubAuthProvider, configure_auth, get_auth_provider
 
 # Domain enumerations
 from .enums import ErrorReason, ResultType, SystemState
@@ -55,13 +55,11 @@ from .types import (  # Abstract interfaces; Type definitions; Data structures
     IAuthProvider,
     IPipelineBase,
     IProvider,
-    IResourceProvider,
 )
 
 # Export all public interfaces
 __all__ = [
     # Auth
-    "AuthService",
     "GithubAuthProvider",
     "configure_auth",
     "get_auth_provider",
@@ -84,10 +82,9 @@ __all__ = [
     "ResourceUsage",
     "HealthStatus",
     # Types
-    "IAuthProvider",
     "IPipelineBase",
     "IProvider",
-    "IResourceProvider",
+    "IAuthProvider",
     # Core tasks
     "ProviderTask",
     "SearchTask",

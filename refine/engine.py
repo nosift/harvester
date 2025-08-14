@@ -222,7 +222,7 @@ class RefineEngine:
             segments = self.parser.parse(pattern)
 
             # Check if pattern can be split safely
-            enabled, reason = self.splittability.can_split_further(pattern, segments)
+            enabled, reason = self.splittability.can_split(pattern, segments)
             if not enabled:
                 logger.info(f"Pattern cannot be split further: {reason}")
 
@@ -322,7 +322,7 @@ class RefineEngine:
 
         try:
             segments = self.parser.parse(pattern)
-            return self.splittability.can_split_further(pattern, segments, recursion_depth)
+            return self.splittability.can_split(pattern, segments, recursion_depth)
         except Exception as e:
             logger.warning(f"Splittability check failed for '{pattern}': {e}")
             return False, f"Analysis failed: {str(e)}"
