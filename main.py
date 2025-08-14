@@ -104,23 +104,28 @@ class AsyncPipelineApplication:
             self.monitoring = create_monitoring_system(monitoring_config)
             logger.info("Monitoring system created")
 
-            # Create worker manager
-            worker_manager_config = WorkerManagerConfig(
-                min_workers=self.config.worker_manager.min_workers,
-                max_workers=self.config.worker_manager.max_workers,
-                target_queue_size=self.config.worker_manager.target_queue_size,
-                adjustment_interval=self.config.worker_manager.adjustment_interval,
-                scale_up_threshold=self.config.worker_manager.scale_up_threshold,
-                scale_down_threshold=self.config.worker_manager.scale_down_threshold,
-                log_recommendations=self.config.worker_manager.log_recommendations,
-            )
-            self.worker_manager = create_worker_manager(
-                worker_manager_config, shutdown_timeout=float(self.config.persistence.shutdown_timeout)
-            )
-            logger.info("Worker manager created")
+            # Create worker manager only if enabled
+            if self.config.worker_manager.enabled:
+                worker_manager_config = WorkerManagerConfig(
+                    enabled=self.config.worker_manager.enabled,
+                    min_workers=self.config.worker_manager.min_workers,
+                    max_workers=self.config.worker_manager.max_workers,
+                    target_queue_size=self.config.worker_manager.target_queue_size,
+                    adjustment_interval=self.config.worker_manager.adjustment_interval,
+                    scale_up_threshold=self.config.worker_manager.scale_up_threshold,
+                    scale_down_threshold=self.config.worker_manager.scale_down_threshold,
+                    log_recommendations=self.config.worker_manager.log_recommendations,
+                )
+                self.worker_manager = create_worker_manager(
+                    worker_manager_config, shutdown_timeout=float(self.config.persistence.shutdown_timeout)
+                )
+                logger.info("Worker manager created")
+            else:
+                self.worker_manager = None
+                logger.info("Worker manager disabled in configuration")
 
-            # Register pipeline stages with worker manager
-            if self.task_manager.pipeline:
+            # Register pipeline stages with worker manager (if enabled)
+            if self.worker_manager and self.task_manager.pipeline:
                 pipeline = self.task_manager.pipeline
                 for stage in StandardPipelineStage:
                     stage_instance = pipeline.get_stage(stage.value)
@@ -134,7 +139,9 @@ class AsyncPipelineApplication:
             logger.info("Status manager initialized")
 
             # Initialize shutdown coordinator
-            components = [self.task_manager, self.worker_manager, self.monitoring]
+            components = [self.task_manager, self.monitoring]
+            if self.worker_manager:
+                components.append(self.worker_manager)
             self.shutdown_coordinator = ShutdownCoordinator(
                 components=components,
                 shutdown_timeout=float(getattr(self.config.persistence, "shutdown_timeout", DEFAULT_SHUTDOWN_TIMEOUT)),
@@ -154,7 +161,8 @@ class AsyncPipelineApplication:
             logger.info("Status looper initialized")
 
             # Register completion event listeners
-            self.task_manager.add_completion_listener(self.worker_manager._on_task_completion)
+            if self.worker_manager:
+                self.task_manager.add_completion_listener(self.worker_manager._on_task_completion)
             self.task_manager.add_completion_listener(self.monitoring._on_task_completion)
             logger.info("Completion event listeners registered")
 
@@ -183,8 +191,9 @@ class AsyncPipelineApplication:
                 self.monitoring.start()
                 logger.debug("Monitoring started")
 
-                self.worker_manager.start()
-                logger.debug("Worker manager started")
+                if self.worker_manager:
+                    self.worker_manager.start()
+                    logger.debug("Worker manager started")
 
                 self.task_manager.start()
                 logger.debug("Task manager started")

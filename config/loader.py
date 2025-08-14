@@ -240,6 +240,7 @@ class ConfigLoader:
             WorkerManagerConfig: Parsed worker manager configuration
         """
         return WorkerManagerConfig(
+            enabled=data.get("enabled", False),
             min_workers=data.get("min_workers", 1),
             max_workers=data.get("max_workers", 10),
             target_queue_size=data.get("target_queue_size", 100),

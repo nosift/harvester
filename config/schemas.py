@@ -301,6 +301,7 @@ class TaskConfig:
 class WorkerManagerConfig:
     """Worker manager configuration for dynamic thread management"""
 
+    enabled: bool = False  # Enable/disable worker manager (default: disabled)
     min_workers: int = 1
     max_workers: int = 10
     target_queue_size: int = 100

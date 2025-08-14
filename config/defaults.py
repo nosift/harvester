@@ -172,13 +172,15 @@ def get_default_config() -> Dict[str, Any]:
             "shutdown_timeout": 30,
             "legacy_enabled": False,
         },
-        "worker": {
+        "worker_manager": {
+            "enabled": False,
             "min_workers": 1,
             "max_workers": 10,
             "target_queue_size": 100,
             "adjustment_interval": 5.0,
             "scale_up_threshold": 0.8,
             "scale_down_threshold": 0.2,
+            "log_recommendations": True,
         },
         "ratelimits": {
             "github_api": {"base_rate": 0.15, "burst_limit": 3, "adaptive": True},

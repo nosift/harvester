@@ -32,6 +32,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from constant.system import DEFAULT_LOG_CLEANUP_DELETE
 from core.models import LogFileInfo, LoggingStats
 
 # ANSI color codes for different log levels
@@ -360,37 +361,80 @@ class Logger:
 
     @staticmethod
     def _ensure_logs_directory():
-        """Ensure logs directory exists and archive existing logs if needed"""
+        """Ensure logs directory exists and handle existing logs based on configuration"""
         if not Logger._logs_dir:
             return
 
-        # Only create directory and handle archiving if we haven't done it before
+        # Only create directory and handle existing logs if we haven't done it before
         if not hasattr(Logger, "_directory_initialized"):
             Logger._logs_dir.mkdir(exist_ok=True)
-            Logger._archive_existing_logs()
+
+            # Use constant to determine cleanup mode
+            if DEFAULT_LOG_CLEANUP_DELETE:
+                Logger._delete_existing_logs()
+            else:
+                Logger._archive_existing_logs()
+
             Logger._directory_initialized = True
 
     @staticmethod
+    def _delete_existing_logs():
+        """Delete all existing log files"""
+        if not Logger._logs_dir or not Logger._logs_dir.exists():
+            return
+
+        # Find and delete all .log files
+        for log_file in Logger._logs_dir.glob("*.log"):
+            try:
+                log_file.unlink()
+                print(f"Deleted existing log: {log_file.name}")
+                Logger._archived_logs.add(log_file.name)
+            except Exception as e:
+                print(f"Failed to delete {log_file.name}: {e}")
+
+    @staticmethod
     def _archive_existing_logs():
-        """Archive existing log files by adding timestamp to their names"""
+        """Archive all existing log files by adding timestamp to their names"""
         if not Logger._logs_dir or not Logger._logs_dir.exists():
             return
 
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
 
-        # Archive main pipeline logs
-        main_logs = ["pipeline.log"]
-        for log_file_name in main_logs:
-            log_file = Logger._logs_dir / log_file_name
-            if log_file.exists():
-                archived_name = log_file_name.replace(".log", f"-{timestamp}.log")
-                archived_path = Logger._logs_dir / archived_name
-                try:
-                    log_file.rename(archived_path)
-                    print(f"Archived existing log: {log_file_name} -> {archived_name}")
-                    Logger._archived_logs.add(log_file_name)
-                except Exception as e:
-                    print(f"Failed to archive {log_file_name}: {e}")
+        # Find all .log files (excluding already archived ones with timestamps)
+        for log_file in Logger._logs_dir.glob("*.log"):
+            # Skip files that look like archived logs (contain timestamp pattern)
+            if "-" in log_file.stem and log_file.stem.split("-")[-1].isdigit():
+                continue
+
+            archived_name = log_file.stem + f"-{timestamp}.log"
+            archived_path = Logger._logs_dir / archived_name
+            try:
+                log_file.rename(archived_path)
+                print(f"Archived existing log: {log_file.name} -> {archived_name}")
+                Logger._archived_logs.add(log_file.name)
+            except Exception as e:
+                print(f"Failed to archive {log_file.name}: {e}")
+
+    @staticmethod
+    def _delete_module_log(module_name: str):
+        """Delete a specific module log file if it exists"""
+        if not Logger._logs_dir or not Logger._logs_dir.exists():
+            return
+
+        log_file_name = f"{module_name}.log"
+
+        # Skip if already processed in this session
+        if log_file_name in Logger._archived_logs:
+            return
+
+        log_file = Logger._logs_dir / log_file_name
+        if log_file.exists():
+            try:
+                log_file.unlink()
+                print(f"Deleted existing log: {log_file_name}")
+                Logger._archived_logs.add(log_file_name)
+            except Exception as e:
+                print(f"Failed to delete {log_file_name}: {e}")
 
     @staticmethod
     def _archive_module_log(module_name: str):
@@ -417,6 +461,14 @@ class Logger:
                 print(f"Failed to archive {log_file_name}: {e}")
 
     @staticmethod
+    def _handle_module_log(module_name: str):
+        """Handle existing module log file based on configuration"""
+        if DEFAULT_LOG_CLEANUP_DELETE:
+            Logger._delete_module_log(module_name)
+        else:
+            Logger._archive_module_log(module_name)
+
+    @staticmethod
     def _setup_file_handlers():
         """Setup file handlers for logging to files"""
         if Logger._file_handler is not None:
@@ -439,8 +491,8 @@ class Logger:
         if module_name in Logger._module_handlers:
             return Logger._module_handlers[module_name]
 
-        # Archive existing module log file before creating new handler
-        Logger._archive_module_log(module_name)
+        # Handle existing module log file before creating new handler
+        Logger._handle_module_log(module_name)
 
         # Create module-specific log file
         module_log_file = Logger._logs_dir / f"{module_name}.log"

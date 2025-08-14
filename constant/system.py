@@ -20,6 +20,9 @@ LOG_LEVEL_INFO: str = "INFO"
 LOG_LEVEL_WARNING: str = "WARNING"
 LOG_LEVEL_ERROR: str = "ERROR"
 
+# Log cleanup configuration. True: delete logs, False: archive logs
+DEFAULT_LOG_CLEANUP_DELETE: bool = True
+
 # Application banner
 APPLICATION_BANNER: str = """
 ╔══════════════════════════════════════════════════════════════╗
