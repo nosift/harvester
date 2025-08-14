@@ -33,16 +33,18 @@ The system aims to build a **universal data acquisition framework** primarily ta
 graph TB
     %% Entry Layer
     subgraph Entry["Entry Layer"]
-        CLI["CLI<br/>(main.py)"]
-        App["Application<br/>(application.py)"]
+        CLI["CLI Interface<br/>(main.py)"]
+        App["Application Core<br/>(main.py)"]
     end
 
     %% Management Layer
     subgraph Management["Management Layer"]
         TaskMgr["Task Manager<br/>(manager/task.py)"]
-        Pipeline["Pipeline<br/>(manager/pipeline.py)"]
+        Pipeline["Pipeline Manager<br/>(manager/pipeline.py)"]
         WorkerMgr["Worker Manager<br/>(manager/worker.py)"]
         QueueMgr["Queue Manager<br/>(manager/queue.py)"]
+        Monitor["System Monitor<br/>(manager/monitor.py)"]
+        Shutdown["Shutdown Coordinator<br/>(manager/shutdown.py)"]
     end
 
     %% Processing Layer
@@ -50,12 +52,17 @@ graph TB
         StageBase["Stage Framework<br/>(stage/base.py)"]
         StageImpl["Stage Implementations<br/>(stage/definition.py)"]
         StageReg["Stage Registry<br/>(stage/registry.py)"]
+        StageFactory["Stage Factory<br/>(stage/factory.py)"]
+        StageResolver["Dependency Resolver<br/>(stage/resolver.py)"]
     end
 
     %% Service Layer
     subgraph Service["Service Layer"]
-        SearchSvc["Search Service<br/>(search/)"]
+        SearchSvc["Search Service<br/>(search/client.py)"]
+        SearchProviders["Search Providers<br/>(search/provider/)"]
         RefineSvc["Query Refinement<br/>(refine/)"]
+        RefineEngine["Refine Engine<br/>(refine/engine.py)"]
+        RefineOptimizer["Query Optimizer<br/>(refine/optimizer.py)"]
     end
 
     %% Core Domain Layer
@@ -65,19 +72,23 @@ graph TB
         Tasks["Task Definitions<br/>(core/tasks.py)"]
         Enums["Enumerations<br/>(core/enums.py)"]
         Metrics["Metrics<br/>(core/metrics.py)"]
+        Auth["Authentication<br/>(core/auth.py)"]
     end
 
-    %% Cross-cutting Concerns
-    subgraph CrossCutting["Cross-cutting Concerns"]
+    %% Infrastructure Layer
+    subgraph Infrastructure["Infrastructure Layer"]
         Config["Configuration<br/>(config/)"]
-        Tools["Infrastructure<br/>(tools/)"]
+        Tools["Tools & Utilities<br/>(tools/)"]
         Constants["Constants<br/>(constant/)"]
+        Storage["Storage & Persistence<br/>(storage/)"]
     end
 
-    %% State Management (Independent)
-    subgraph StateLayer["State Management"]
-        StateMonitor["State Monitor<br/>(state/monitor.py)"]
-        StateDisplay["State Display<br/>(state/display.py)"]
+    %% State Management Layer
+    subgraph StateLayer["State Management Layer"]
+        StateStatus["Status Manager<br/>(state/status.py)"]
+        StateCollector["State Collector<br/>(state/collector.py)"]
+        StateDisplay["Display Engine<br/>(state/display.py)"]
+        StateBuilder["Status Builder<br/>(state/builder.py)"]
         StateModels["State Models<br/>(state/models.py)"]
     end
 
@@ -85,6 +96,7 @@ graph TB
     subgraph External["External Systems"]
         GitHub["GitHub<br/>(API + Web)"]
         AIServices["AI Service<br/>Providers"]
+        FileSystem["File System<br/>(Local Storage)"]
     end
 
     %% Dependencies (Top-down)
@@ -92,20 +104,21 @@ graph TB
     Management --> Processing
     Processing --> Service
     Service --> Core
-    
-    %% Cross-cutting dependencies
-    Entry -.-> CrossCutting
-    Management -.-> CrossCutting
-    Processing -.-> CrossCutting
-    Service -.-> CrossCutting
-    
+
+    %% Infrastructure dependencies
+    Entry -.-> Infrastructure
+    Management -.-> Infrastructure
+    Processing -.-> Infrastructure
+    Service -.-> Infrastructure
+    Core -.-> Infrastructure
+
     %% State management dependencies
     Entry -.-> StateLayer
     Management -.-> StateLayer
-    
+
     %% External dependencies
     Service --> External
-    Processing --> External
+    Infrastructure --> External
 ```
 
 ### System Architecture Overview
@@ -118,88 +131,94 @@ graph TB
         CLI[Command Line Interface]
         ConfigMgmt[Configuration Management]
     end
-    
-    %% Application Orchestration Layer
-    subgraph AppLayer["Application Orchestration Layer"]
-        AppCore[Application Core]
-        TaskOrchestrator[Task Orchestrator]
-        ResourceCoordinator[Resource Coordinator]
+
+    %% Application Management Layer
+    subgraph AppLayer["Application Management Layer"]
+        MainApp[Main Application]
+        TaskManager[Task Manager]
+        ResourceManager[Resource Manager]
+        ShutdownManager[Shutdown Manager]
     end
-    
-    %% Core Pipeline Engine with Advanced Features
-    subgraph PipelineCore["Advanced Pipeline Engine"]
+
+    %% Core Pipeline Engine
+    subgraph PipelineCore["Pipeline Engine"]
         %% Stage Management System
-        subgraph StageSystem["Dynamic Stage Management"]
-            StageRegistry[Stage Registry & Discovery]
+        subgraph StageSystem["Stage Management System"]
+            StageRegistry[Stage Registry]
             DependencyResolver[Dependency Resolver]
-            DAGEngine[DAG Execution Engine]
+            StageFactory[Stage Factory]
         end
-        
+
         %% Queue Management System
-        subgraph QueueSystem["Intelligent Queue Management"]
-            QueueManager[Multi-Queue Manager]
-            LoadBalancer[Adaptive Load Balancer]
-            TaskScheduler[Priority Task Scheduler]
+        subgraph QueueSystem["Queue Management System"]
+            QueueManager[Queue Manager]
+            WorkerManager[Worker Manager]
+            MonitoringSystem[System Monitor]
         end
-        
+
         %% Processing Stages
         subgraph ProcessingStages["Processing Stages"]
             SearchStage[Search Stage]
-            AcquisitionStage[Acquisition Stage]
-            CheckStage[Validation Stage]
+            GatherStage[Gather Stage]
+            CheckStage[Check Stage]
             InspectStage[Inspect Stage]
         end
     end
-    
-    %% AI Provider Ecosystem
-    subgraph ProviderEcosystem["AI Provider Ecosystem"]
+
+    %% Search Provider Ecosystem
+    subgraph ProviderEcosystem["Search Provider Ecosystem"]
         ProviderRegistry[Provider Registry]
-        ProviderFactory[Provider Factory]
-        OpenAIProvider[OpenAI Compatible]
-        AnthropicProvider[Anthropic Claude]
-        GeminiProvider[Google Gemini]
+        BaseProvider[Base Provider]
+        OpenAIProvider[OpenAI-like Provider]
         CustomProviders[Custom Providers]
     end
-    
+
     %% Advanced Processing Engines
     subgraph ProcessingEngines["Processing Engines"]
-        SearchEngine[Intelligent Search Engine]
-        
-        %% Query Optimization Engine - Detailed Breakdown
+        SearchClient[Search Client]
+
+        %% Query Optimization Engine
         subgraph QueryOptimizer["Query Optimization Engine"]
+            RefineEngine[Refine Engine]
             RegexParser[Regex Parser]
             SplittabilityAnalyzer[Splittability Analyzer]
             EnumerationOptimizer[Enumeration Optimizer]
             QueryGenerator[Query Generator]
-            
+            OptimizationStrategies[Optimization Strategies]
+
             %% Internal Flow
+            RefineEngine --> RegexParser
             RegexParser --> SplittabilityAnalyzer
             SplittabilityAnalyzer --> EnumerationOptimizer
-            EnumerationOptimizer --> QueryGenerator
+            EnumerationOptimizer --> OptimizationStrategies
+            OptimizationStrategies --> QueryGenerator
         end
-        
-        ValidationEngine[API Key Validation Engine]
-        RecoveryEngine[Task Recovery Engine]
+
+        ValidationEngine[API Key Validation]
+        RecoveryEngine[Task Recovery]
     end
-    
+
     %% State & Data Management
     subgraph StateManagement["State & Data Management"]
-        StateMonitor[Real-time State Monitor]
-        DataPersistence[Data Persistence Layer]
-        QueuePersistence[Queue State Persistence]
-        ResultAggregator[Result Aggregator]
-        MonitoringSystem[Monitoring & Analytics]
+        StatusManager[Status Manager]
+        StateCollector[State Collector]
+        DisplayEngine[Display Engine]
+        StatusBuilder[Status Builder]
+        PersistenceLayer[Persistence Layer]
+        SnapshotManager[Snapshot Manager]
+        ResultManager[Result Manager]
     end
-    
+
     %% Infrastructure Services
     subgraph Infrastructure["Infrastructure Services"]
-        RateLimiting[Adaptive Rate Limiting]
+        RateLimiting[Rate Limiting]
         CredentialMgmt[Credential Management]
         AgentRotation[User Agent Rotation]
-        LoggingSystem[Structured Logging]
-        SecurityLayer[Security Layer]
+        LoggingSystem[Logging System]
+        RetryFramework[Retry Framework]
+        ResourcePool[Resource Pool]
     end
-    
+
     %% External Systems
     subgraph External["External Systems"]
         GitHubAPI[GitHub API]
@@ -207,71 +226,71 @@ graph TB
         AIServiceAPIs[AI Service APIs]
         FileSystem[Local File System]
     end
-    
+
     %% User Interactions
     User --> CLI
     User --> ConfigMgmt
-    CLI --> AppCore
-    ConfigMgmt --> AppCore
-    
+    CLI --> MainApp
+    ConfigMgmt --> MainApp
+
     %% Application Flow
-    AppCore --> TaskOrchestrator
-    AppCore --> ResourceCoordinator
-    TaskOrchestrator --> StageRegistry
-    TaskOrchestrator --> QueueManager
-    
+    MainApp --> TaskManager
+    MainApp --> ResourceManager
+    MainApp --> ShutdownManager
+    TaskManager --> StageRegistry
+    TaskManager --> QueueManager
+
     %% Stage Management Flow
     StageRegistry --> DependencyResolver
-    DependencyResolver --> DAGEngine
-    DAGEngine --> ProcessingStages
-    
+    StageRegistry --> StageFactory
+    DependencyResolver --> ProcessingStages
+    StageFactory --> ProcessingStages
+
     %% Queue Management Flow
-    QueueManager --> LoadBalancer
-    QueueManager --> TaskScheduler
-    LoadBalancer --> ProcessingStages
-    TaskScheduler --> ProcessingStages
-    
-    %% Stage Dependencies (DAG)
-    SearchStage --> AcquisitionStage
-    AcquisitionStage --> CheckStage
+    QueueManager --> WorkerManager
+    QueueManager --> MonitoringSystem
+    WorkerManager --> ProcessingStages
+
+    %% Stage Dependencies (Pipeline)
+    SearchStage --> GatherStage
+    GatherStage --> CheckStage
     CheckStage --> InspectStage
-    
+
     %% Processing Engine Integration
-    SearchStage --> SearchEngine
+    SearchStage --> SearchClient
     SearchStage --> QueryOptimizer
     CheckStage --> ValidationEngine
     ProcessingStages --> RecoveryEngine
-    
+
     %% Provider Integration
-    TaskOrchestrator --> ProviderRegistry
-    ProviderRegistry --> ProviderFactory
-    ProviderFactory --> OpenAIProvider
-    ProviderFactory --> AnthropicProvider
-    ProviderFactory --> GeminiProvider
-    ProviderFactory --> CustomProviders
-    
+    SearchClient --> ProviderRegistry
+    ProviderRegistry --> BaseProvider
+    BaseProvider --> OpenAIProvider
+    BaseProvider --> CustomProviders
+
     %% State Management Integration
-    DAGEngine --> StateMonitor
-    QueueManager --> QueuePersistence
-    ProcessingStages --> DataPersistence
-    ProcessingStages --> ResultAggregator
-    StateMonitor --> MonitoringSystem
-    MonitoringSystem --> User
-    
+    ProcessingStages --> StatusManager
+    QueueManager --> StateCollector
+    StatusManager --> DisplayEngine
+    StatusManager --> StatusBuilder
+    ProcessingStages --> PersistenceLayer
+    PersistenceLayer --> SnapshotManager
+    PersistenceLayer --> ResultManager
+
     %% Infrastructure Integration
-    SearchEngine -.-> RateLimiting
-    ResourceCoordinator -.-> CredentialMgmt
-    ResourceCoordinator -.-> AgentRotation
-    AppCore -.-> LoggingSystem
-    ProcessingStages -.-> SecurityLayer
-    
+    SearchClient -.-> RateLimiting
+    ResourceManager -.-> CredentialMgmt
+    ResourceManager -.-> AgentRotation
+    MainApp -.-> LoggingSystem
+    ProcessingStages -.-> RetryFramework
+    Infrastructure -.-> ResourcePool
+
     %% External Connections
-    SearchEngine --> GitHubAPI
-    SearchEngine --> GitHubWeb
+    SearchClient --> GitHubAPI
+    SearchClient --> GitHubWeb
     ValidationEngine --> AIServiceAPIs
-    DataPersistence --> FileSystem
-    QueuePersistence --> FileSystem
-    
+    PersistenceLayer --> FileSystem
+
     %% Styling
     classDef userClass fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
     classDef appClass fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
@@ -281,14 +300,14 @@ graph TB
     classDef stateClass fill:#f1f8e9,stroke:#689f38,stroke-width:2px
     classDef infraClass fill:#f5f5f5,stroke:#616161,stroke-width:2px
     classDef externalClass fill:#ffebee,stroke:#d32f2f,stroke-width:2px
-    
+
     class User,CLI,ConfigMgmt userClass
-    class AppCore,TaskOrchestrator,ResourceCoordinator appClass
-    class StageRegistry,DependencyResolver,DAGEngine,QueueManager,LoadBalancer,TaskScheduler,SearchStage,AcquisitionStage,CheckStage,InspectStage coreClass
-    class ProviderRegistry,ProviderFactory,OpenAIProvider,AnthropicProvider,GeminiProvider,CustomProviders providerClass
-    class SearchEngine,QueryOptimizer,ValidationEngine,RecoveryEngine engineClass
-    class StateMonitor,DataPersistence,QueuePersistence,ResultAggregator,MonitoringSystem stateClass
-    class RateLimiting,CredentialMgmt,AgentRotation,LoggingSystem,SecurityLayer infraClass
+    class MainApp,TaskManager,ResourceManager,ShutdownManager appClass
+    class StageRegistry,DependencyResolver,StageFactory,QueueManager,WorkerManager,MonitoringSystem,SearchStage,GatherStage,CheckStage,InspectStage coreClass
+    class ProviderRegistry,BaseProvider,OpenAIProvider,CustomProviders providerClass
+    class SearchClient,QueryOptimizer,ValidationEngine,RecoveryEngine engineClass
+    class StatusManager,StateCollector,DisplayEngine,StatusBuilder,PersistenceLayer,SnapshotManager,ResultManager stateClass
+    class RateLimiting,CredentialMgmt,AgentRotation,LoggingSystem,RetryFramework,ResourcePool infraClass
     class GitHubAPI,GitHubWeb,AIServiceAPIs,FileSystem externalClass
 ```
 
@@ -303,11 +322,11 @@ sequenceDiagram
     participant TM as TaskManager
     participant Pipeline as Pipeline
     participant Search as SearchStage
-    participant Acquisition as AcquisitionStage
+    participant Gather as GatherStage
     participant Check as CheckStage
     participant Inspect as InspectStage
-    participant Persist as Persistence
-    participant Monitor as Monitoring
+    participant Storage as Storage
+    participant Monitor as StatusManager
 
     %% Initialization Phase
     CLI->>App: 1. Start Application
@@ -316,82 +335,129 @@ sequenceDiagram
     TM->>TM: 4. Initialize Providers
     TM->>Pipeline: 5. Create Pipeline
     Pipeline->>Search: 6. Register SearchStage
-    Pipeline->>Acquisition: 7. Register AcquisitionStage
+    Pipeline->>Gather: 7. Register GatherStage
     Pipeline->>Check: 8. Register CheckStage
     Pipeline->>Inspect: 9. Register InspectStage
-    App->>Monitor: 10. Start Monitoring
+    App->>Monitor: 10. Start Status Manager
 
     %% Processing Phase
     loop Multi-Stage Processing
         TM->>Search: 11. Submit Search Tasks
-        Search->>Search: 12. Query GitHub
-        Search->>Acquisition: 13. Forward Results
-        
-        Acquisition->>Acquisition: 14. Acquire Details
-        Acquisition->>Check: 15. Forward Keys
-        
+        Search->>Search: 12. Query GitHub with Optimization
+        Search->>Gather: 13. Forward Search Results
+
+        Gather->>Gather: 14. Acquire Detailed Information
+        Gather->>Check: 15. Forward Extracted Keys
+
         Check->>Check: 16. Validate API Keys
         Check->>Inspect: 17. Forward Valid Keys
-        
+
         Inspect->>Inspect: 18. Inspect API Capabilities
-        Inspect->>Persist: 19. Save Results
-        
+        Inspect->>Storage: 19. Save Results
+
         Pipeline->>Monitor: 20. Update Status
         Monitor->>App: 21. Display Progress
     end
 
+    %% Recovery and Persistence
+    loop Background Operations
+        Storage->>Storage: Auto-save Results
+        Storage->>Storage: Create Snapshots
+        Pipeline->>Pipeline: Task Recovery
+        Monitor->>Monitor: Collect Metrics
+    end
+
     %% Completion Phase
     Pipeline->>Pipeline: 22. Check Completion
-    Pipeline->>Persist: 23. Final Save
-    Pipeline->>Monitor: 24. Final Status
+    Pipeline->>Storage: 23. Final Persistence
+    Pipeline->>Monitor: 24. Final Status Report
     App->>TM: 25. Graceful Shutdown
+    TM->>Storage: 26. Save State
 ```
 
 ## Architecture Layers
 
 ### 1. **Presentation Layer**
-   - **CLI Interface** (`main.py`): Command-line entry point with argument parsing
-   - **Configuration System** (`config/`): YAML-based configuration management with validation
+   - **CLI Interface** (`main.py`): Command-line entry point with argument parsing and application lifecycle
+   - **Configuration System** (`config/`): YAML-based configuration management with validation and schemas
 
-### 2. **Application Layer** 
-   - **Application Orchestrator** (`application.py`): Main application lifecycle management
-   - **Task Coordination** (`manager/task.py`): Provider and pipeline coordination
-   - **Resource Management** (`manager/coordinator.py`): Global resource coordination
+### 2. **Application Layer**
+   - **Application Core** (`main.py`): Main application lifecycle and orchestration
+   - **Task Management** (`manager/task.py`): Provider coordination and task distribution
+   - **Resource Coordination** (`tools/coordinator.py`): Global resource management and coordination
+   - **Shutdown Management** (`manager/shutdown.py`): Graceful shutdown coordination
+   - **Worker Management** (`manager/worker.py`): Worker thread management and scaling
+   - **Queue Management** (`manager/queue.py`): Multi-queue coordination and management
 
 ### 3. **Business Service Layer**
-   - **Pipeline Engine** (`manager/pipeline.py`): Multi-stage processing orchestration
-   - **Stage System** (`stage/`): Pluggable processing stages with dependency resolution
-   - **Search Service** (`search/`): GitHub code search with multiple provider support
-   - **Query Refinement** (`refine/`): Intelligent query optimization and generation
+   - **Pipeline Engine** (`manager/pipeline.py`): Multi-stage processing orchestration with DAG execution
+   - **Stage System** (`stage/`): Pluggable processing stages with dependency resolution and factory pattern
+   - **Search Service** (`search/`): GitHub code search with provider abstraction and optimization
+   - **Query Refinement** (`refine/`): Intelligent query optimization with strategy pattern and mathematical foundations
 
 ### 4. **Domain Layer**
    - **Core Models** (`core/models.py`): Business domain objects and data structures
    - **Type System** (`core/types.py`): Interface definitions and contracts
-   - **Business Logic** (`core/enums.py`, `core/tasks.py`): Domain rules and task definitions
-   - **Metrics & KPIs** (`core/metrics.py`): Performance measurement and analytics
+   - **Task Definitions** (`core/tasks.py`): Domain-specific task types and workflows
+   - **Business Enums** (`core/enums.py`): Domain enumerations and constants
+   - **Metrics & Analytics** (`core/metrics.py`): Performance measurement and KPI tracking
+   - **Authentication** (`core/auth.py`): Authentication and authorization logic
+   - **Custom Exceptions** (`core/exceptions.py`): Domain-specific exception handling
+   - **Custom Exceptions** (`core/exceptions.py`): Domain-specific exception handling
 
 ### 5. **Infrastructure Layer**
-   - **Data Persistence** (`manager/persistence.py`): Result storage and recovery
-   - **Logging System** (`tools/logger.py`): Structured logging with API key redaction
-   - **Rate Limiting** (`tools/ratelimit.py`): Adaptive rate control for external APIs
-   - **Load Balancing** (`tools/balancer.py`): Resource distribution strategies
-   - **Credential Management** (`manager/credential.py`): Secure credential rotation
-   - **Agent Management** (`manager/agent.py`): User-agent rotation for web scraping
+   - **Storage & Persistence** (`storage/`): Result storage, recovery, and snapshot management
+     - **Atomic Operations** (`storage/atomic.py`): Atomic file operations with fsync
+     - **Result Management** (`storage/persistence.py`): Multi-format result persistence
+     - **Task Recovery** (`storage/recovery.py`): Task recovery mechanisms
+     - **Shard Management** (`storage/shard.py`): NDJSON shard management with rotation
+     - **Snapshot Management** (`storage/snapshot.py`): Backup and restore functionality
+   - **Tools & Utilities** (`tools/`): Infrastructure tools and utilities
+     - **Logging System** (`tools/logger.py`): Structured logging with API key redaction
+     - **Rate Limiting** (`tools/ratelimit.py`): Adaptive rate control with token bucket algorithm
+     - **Load Balancing** (`tools/balancer.py`): Resource distribution strategies
+     - **Credential Management** (`tools/credential.py`): Secure credential rotation and management
+     - **Agent Management** (`tools/agent.py`): User-agent rotation for web scraping
+     - **Retry Framework** (`tools/retry.py`): Unified retry mechanisms with backoff strategies
+     - **Resource Pooling** (`tools/resources.py`): Resource pool management and optimization
 
-### 6. **Monitoring & State Layer**
-   - **State Collection** (`state/collector.py`): System metrics gathering
-   - **Real-time Monitoring** (`state/monitor.py`): Performance and health monitoring  
-   - **Status Display** (`state/display.py`): User-friendly progress visualization
-   - **State Models** (`state/models.py`): Monitoring data structures
+### 6. **State Management Layer**
+   - **Status Management** (`state/status.py`): Centralized status management and coordination
+   - **State Collection** (`state/collector.py`): System metrics gathering and aggregation
+   - **Display Engine** (`state/display.py`): User-friendly progress visualization and formatting
+   - **Status Builder** (`state/builder.py`): Status data construction and transformation
+   - **State Models** (`state/models.py`): Monitoring data structures and metrics
+   - **State Configuration** (`state/config.py`): Display configuration management
+   - **Field Mapping** (`state/mapper.py`): Data field mapping and transformation
+   - **Status Rendering** (`state/renderer.py`): Status output rendering and formatting
 
 ## Processing Stages
 
-The system implements a **4-stage pipeline** for comprehensive API key discovery:
+The system implements a **4-stage pipeline** for comprehensive data acquisition and validation:
 
-1. **Search Stage**: Intelligent GitHub code search with advanced query optimization
-2. **Acquisition Stage**: Detailed information acquisition from search results  
-3. **Check Stage**: API key validation against actual service endpoints
-4. **Inspect Stage**: API capability inspection for validated keys
+1. **Search Stage** (`stage/definition.py:SearchStage`):
+   - Intelligent GitHub code search with advanced query optimization
+   - Multi-provider search support (API + Web)
+   - Query refinement using mathematical optimization algorithms
+   - Rate-limited search execution with adaptive throttling
+
+2. **Gather Stage** (`stage/definition.py:GatherStage`):
+   - Detailed information acquisition from search results
+   - Content extraction and parsing
+   - Pattern matching for key identification
+   - Structured data collection and normalization
+
+3. **Check Stage** (`stage/definition.py:CheckStage`):
+   - API key validation against actual service endpoints
+   - Authentication verification and capability testing
+   - Service availability and response validation
+   - Error handling and retry mechanisms
+
+4. **Inspect Stage** (`stage/definition.py:InspectStage`):
+   - API capability inspection for validated keys
+   - Model enumeration and feature detection
+   - Service limits and quota analysis
+   - Comprehensive capability profiling
 
 ## Advanced Query Optimization Engine
 
@@ -567,63 +633,112 @@ The system features a sophisticated **Query Optimization Engine** with mathemati
 
 ```
 harvester/
-├── config/             # Configuration management
-│   ├── defaults.py    # Default configuration values
-│   ├── factory.py     # Configuration factory classes
-│   ├── loader.py      # Configuration loading utilities
-│   ├── schemas.py     # Configuration schema definitions
-│   └── validator.py   # Configuration validation
-├── constant/          # Constants definition
+├── config/           # Configuration management
+│   ├── accessor.py   # Configuration access utilities
+│   ├── defaults.py   # Default configuration values
+│   ├── loader.py     # Configuration loading
+│   ├── schemas.py    # Configuration schemas
+│   ├── validator.py  # Configuration validation
+│   └── __init__.py   # Package initialization
+├── constant/         # System constants
 │   ├── monitoring.py # Monitoring constants
 │   ├── runtime.py    # Runtime constants
 │   ├── search.py     # Search constants
-│   └── system.py     # System constants
-├── core/              # Core types and interfaces
+│   ├── system.py     # System constants
+│   └── __init__.py   # Package initialization
+├── core/             # Core domain models
+│   ├── auth.py       # Authentication
 │   ├── enums.py      # System enumerations
+│   ├── exceptions.py # Custom exceptions
 │   ├── metrics.py    # Performance metrics
 │   ├── models.py     # Core data models
 │   ├── tasks.py      # Task definitions
-│   └── types.py      # Core type definitions
-├── manager/           # Task and resource management
-│   ├── agent.py      # Agent management
-│   ├── coordinator.py # Resource coordination
-│   ├── credential.py  # Credential management
-│   ├── persistence.py # Result persistence management
+│   ├── types.py      # Core type definitions
+│   └── __init__.py   # Package initialization
+├── examples/         # Configuration examples
+│   ├── config-full.yaml    # Complete configuration template
+│   └── config-simple.yaml  # Basic configuration template
+├── manager/          # Task and resource management
+│   ├── base.py       # Base management classes
+│   ├── monitor.py    # System monitoring
 │   ├── pipeline.py   # Pipeline management
 │   ├── queue.py      # Queue management
-│   ├── recovery.py   # Task recovery
+│   ├── shutdown.py   # Shutdown coordination
 │   ├── task.py       # Task management
-│   └── worker.py     # Worker thread management
-├── refine/            # Query optimization
+│   ├── watcher.py    # Resource watching
+│   ├── worker.py     # Worker thread management
+│   └── __init__.py   # Package initialization
+├── refine/           # Query optimization
+│   ├── config.py     # Refine configuration
 │   ├── engine.py     # Optimization engine
 │   ├── generator.py  # Query generation
 │   ├── optimizer.py  # Query optimization
-│   └── parser.py     # Query parsing
-├── search/            # Search engines
+│   ├── parser.py     # Query parsing
+│   ├── segment.py    # Pattern segmentation
+│   ├── splittability.py # Splittability analysis
+│   ├── strategies.py # Optimization strategies
+│   ├── types.py      # Refine type definitions
+│   └── __init__.py   # Package initialization
+├── search/           # Search engines
 │   ├── client.py     # Search client
-│   └── provider/     # Provider implementations
+│   ├── provider/     # Provider implementations
+│   │   ├── anthropic.py    # Anthropic provider
+│   │   ├── azure.py        # Azure OpenAI provider
+│   │   ├── base.py         # Base provider class
+│   │   ├── bedrock.py      # AWS Bedrock provider
+│   │   ├── doubao.py       # ByteDance Doubao provider
+│   │   ├── gemini.py       # Google Gemini provider
+│   │   ├── gooeyai.py      # GooeyAI provider
+│   │   ├── openai.py       # OpenAI provider
+│   │   ├── openai_like.py  # OpenAI-compatible provider
+│   │   ├── qianfan.py      # Baidu Qianfan provider
+│   │   ├── registry.py     # Provider registry
+│   │   ├── stabilityai.py  # Stability AI provider
+│   │   ├── vertex.py       # Google Vertex AI provider
+│   │   └── __init__.py     # Package initialization
+│   └── __init__.py   # Package initialization
 ├── stage/            # Pipeline stages
 │   ├── base.py       # Base stage classes
-│   ├── definition.py # Stage definitions
+│   ├── definition.py # Stage implementations
 │   ├── factory.py    # Stage factory
-│   └── registry.py   # Stage registry
+│   ├── registry.py   # Stage registry
+│   ├── resolver.py   # Dependency resolver
+│   └── __init__.py   # Package initialization
 ├── state/            # State management
+│   ├── builder.py    # Status builder
 │   ├── collector.py  # State collection
-│   ├── display.py    # State display
+│   ├── config.py     # State configuration
+│   ├── display.py    # Display engine
+│   ├── mapper.py     # Field mapping
 │   ├── models.py     # State data models
-│   └── monitor.py    # State monitoring
-├── tools/            # Utility functions
+│   ├── renderer.py   # Status rendering
+│   ├── status.py     # Status manager
+│   └── __init__.py   # Package initialization
+├── storage/          # Storage and persistence
+│   ├── atomic.py     # Atomic file operations
+│   ├── persistence.py # Result persistence
+│   ├── recovery.py   # Task recovery
+│   ├── shard.py      # NDJSON shard management
+│   ├── snapshot.py   # Snapshot management
+│   └── __init__.py   # Package initialization
+├── tools/            # Tools and utilities
+│   ├── agent.py      # User agent management
 │   ├── balancer.py   # Load balancing
-│   ├── logger.py     # Logging utilities
+│   ├── coordinator.py # Resource coordination
+│   ├── credential.py # Credential management
+│   ├── logger.py     # Logging system
 │   ├── ratelimit.py  # Rate limiting
-│   └── utils.py      # General utilities
-├── application.py    # Application class
-├── config.yaml       # Configuration file
-├── main.py          # Entry point
-└── README.md        # Documentation
-├── examples/         # Configuration examples
-    ├── config-full.yaml    # Full configuration template
-    └── config-simple.yaml  # Basic configuration template
+│   ├── resources.py  # Resource pooling
+│   ├── retry.py      # Retry framework
+│   ├── utils.py      # General utilities
+│   └── __init__.py   # Package initialization
+├── .gitignore        # Git ignore rules
+├── LICENSE           # License file
+├── main.py           # Entry point and application core
+├── README.md         # English documentation
+├── README.zh-CN.md   # Chinese documentation
+├── requirements.txt  # Python dependencies
+└── __init__.py       # Root package initialization
 ```
 
 ## Advanced Features
@@ -794,12 +909,12 @@ persistence:
   snapshot_interval: 300      # Seconds between snapshot builds
   auto_restore: true          # Automatically restore from previous session
   shutdown_timeout: 30        # Seconds to wait for graceful shutdown
-  legacy_enabled: false       # Write legacy text files alongside NDJSON
+  format: txt                 # Output format, support txt or ndjson
 ```
 
 #### Key Settings
 
-- **`legacy_enabled`**: Controls whether to write legacy text files alongside NDJSON shards
+- **`format`**: Controls whether to write text files alongside NDJSON shards
   - `false` (default): Only write NDJSON shards (recommended for new deployments)
   - `true`: Write both NDJSON shards and legacy text files (for backward compatibility)
 
@@ -813,46 +928,17 @@ persistence:
 The application supports two output styles:
 
 ```bash
-# Classic style (concise, main.py-like output)
+# Classic style (concise output)
 python main.py --style classic
-python application.py --style classic
 
-# Detailed style (verbose, application.py-like output)
+# Detailed style (verbose output)
 python main.py --style detailed
-python application.py --style detailed
 ```
-
-## Development
-
-### Code Quality
-
-The project includes automated code quality checks:
-
-```bash
-# Install development dependencies
-pip install -e ".[dev]"
-
-# Run code quality checks
-python scripts/check_code_quality.py
-
-# Run tests
-python scripts/run_tests.py
-
-# Or manually:
-ruff check .
-ruff format --check .
-mypy .
-python -m unittest discover -s tests -p "test_*.py" -v
-```
-
-### Testing
-
-The test suite covers:
-- Persistence behavior with `legacy_enabled` toggle
-- Shutdown timeout handling for all background threads
-- Stage deduplication with bounded memory usage
-- Renderer selection and style switching
 
 ## Contact
 
 For questions or other inquiries during usage, please contact the project maintainers through GitHub Issues.
+
+## Notes
+
+Visit [ai-collector](https://github.com/wzdnzd/ai-collector) for more useful tools.

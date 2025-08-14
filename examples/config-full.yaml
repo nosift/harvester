@@ -1,99 +1,29 @@
 # Full Configuration Example
-display:
-  # Display context configuration for different views
-  contexts:
-    # Application status display settings
-    application:
-      detailed:
-        title: "Detailed Application Status"
-        show_workers: true
-        show_alerts: true
-        show_performance: true
-        show_newline_prefix: false
-      standard:
-        title: "Application Status"
-        show_workers: false
-        show_alerts: true
-        show_performance: false
-        show_newline_prefix: false
-    # Monitoring display settings
-    monitoring:
-      detailed:
-        title: "Detailed Pipeline Monitoring"
-        show_workers: true
-        show_alerts: true
-        show_performance: true
-        show_newline_prefix: true
-      standard:
-        title: "Pipeline Monitoring"
-        show_workers: true
-        show_alerts: true
-        show_performance: true
-        show_newline_prefix: false
-    # System status display settings
-    system:
-      compact:
-        title: "System Status"
-        show_workers: false
-        show_alerts: false
-        show_performance: false
-        show_newline_prefix: false
-      detailed:
-        title: "Detailed System Status"
-        show_workers: true
-        show_alerts: true
-        show_performance: true
-        show_newline_prefix: true
-      standard:
-        title: "System Status"
-        show_workers: true
-        show_alerts: true
-        show_performance: false
-        show_newline_prefix: false
-    # Task status display settings
-    task:
-      compact:
-        title: "Task Progress"
-        show_workers: false
-        show_alerts: false
-        show_performance: false
-        show_newline_prefix: false
-      standard:
-        title: "Task Status"
-        show_workers: true
-        show_alerts: false
-        show_performance: false
-        show_newline_prefix: false
-    main:
-      standard:
-        show_alerts: false
-        show_newline_prefix: false
-        show_performance: false
-        show_workers: true
-        title: Pipeline Status
+# This file demonstrates all available configuration options
 
-global:
+# Global application settings
+global_config:
   # Working directory for storing data and results
   workspace: "./data"
   # Maximum number of times a task can be requeued after failure
   max_retries_requeued: 3
   # GitHub credentials configuration
   github_credentials:
-    # GitHub session tokens (recommended)
+    # GitHub session tokens (recommended for higher rate limits)
     sessions:
       - "your_github_session_here"
-    # GitHub API tokens (optional)
+    # GitHub API tokens (optional, lower rate limits)
     tokens:
       - "your_github_token_here"
     # Load balancing strategy: round_robin or random
     strategy: "round_robin"
-  # User-Agent list for web requests
+  # User-Agent list for web requests (rotated automatically)
   user_agents:
     - "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
     - "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
     - "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
 
-# Pipeline configuration
+# Pipeline stage configuration
 pipeline:
   # Number of threads for each stage
   threads:
@@ -108,14 +38,14 @@ pipeline:
     check: 500000 # Validation tasks queue
     inspect: 1000000 # API capability inspection tasks queue
 
-# Statistics configuration
+# Statistics display configuration
 stats:
   # Statistics update interval in seconds
   interval: 10
   # Enable statistics display
   show: true
 
-# Monitoring configuration
+# System monitoring configuration
 monitoring:
   # Monitoring update interval in seconds
   update_interval: 2.0
@@ -123,12 +53,86 @@ monitoring:
   error_threshold: 0.1
   # Queue size warning threshold
   queue_threshold: 1000
-  # Memory usage threshold in bytes
-  memory_threshold: 1073741824 # 1GB
+  # Memory usage threshold in bytes (1GB)
+  memory_threshold: 1073741824
   # Response time threshold in seconds
   response_threshold: 5.0
 
-# Persistence configuration
+# Display configuration for different contexts
+display:
+  contexts:
+    # System status display settings
+    system:
+      standard:
+        title: "System Status"
+        show_workers: true
+        show_alerts: true
+        show_performance: false
+        show_newline_prefix: false
+      compact:
+        title: "System Status"
+        show_workers: false
+        show_alerts: false
+        show_performance: false
+        show_newline_prefix: false
+      detailed:
+        title: "Detailed System Status"
+        show_workers: true
+        show_alerts: true
+        show_performance: true
+        show_newline_prefix: true
+    # Monitoring display settings
+    monitoring:
+      standard:
+        title: "Pipeline Monitoring"
+        show_workers: true
+        show_alerts: true
+        show_performance: true
+        show_newline_prefix: false
+      detailed:
+        title: "Detailed Pipeline Monitoring"
+        show_workers: true
+        show_alerts: true
+        show_performance: true
+        show_newline_prefix: true
+    # Task status display settings
+    task:
+      standard:
+        title: "Task Manager Status"
+        show_workers: true
+        show_alerts: false
+        show_performance: false
+        show_newline_prefix: false
+      compact:
+        title: "Task Progress"
+        show_workers: false
+        show_alerts: false
+        show_performance: false
+        show_newline_prefix: false
+    # Application status display settings
+    application:
+      standard:
+        title: "Application Status"
+        show_workers: false
+        show_alerts: true
+        show_performance: false
+        show_newline_prefix: false
+      detailed:
+        title: "Detailed Application Status"
+        show_workers: true
+        show_alerts: true
+        show_performance: true
+        show_newline_prefix: false
+    # Main process stats display settings
+    main:
+      standard:
+        title: "Pipeline Status"
+        show_workers: true
+        show_alerts: false
+        show_performance: false
+        show_newline_prefix: false
+
+# Data persistence configuration
 persistence:
   # Batch size for saving results
   batch_size: 50
@@ -136,13 +140,19 @@ persistence:
   save_interval: 30
   # Queue state save interval in seconds
   queue_interval: 60
+  # Periodic snapshot interval in seconds
+  snapshot_interval: 300
   # Auto restore state on startup
   auto_restore: true
   # Shutdown timeout in seconds
   shutdown_timeout: 30
+  # Output format, support txt or ndjson
+  format: txt
 
-# Worker pool configuration
+# Dynamic worker manager configuration
 worker:
+  # Enable/disable dynamic worker management
+  enabled: false
   # Minimum number of worker threads
   min_workers: 1
   # Maximum number of worker threads
@@ -151,12 +161,14 @@ worker:
   target_queue_size: 100
   # Thread pool adjustment interval in seconds
   adjustment_interval: 5.0
-  # Queue size threshold for scaling up
+  # Queue size threshold for scaling up (0.0-1.0)
   scale_up_threshold: 0.8
-  # Queue size threshold for scaling down
+  # Queue size threshold for scaling down (0.0-1.0)
   scale_down_threshold: 0.2
+  # Enable worker adjustment recommendation logging
+  log_recommendations: true
 
-# Rate limiting configuration
+# Global rate limiting configuration
 ratelimits:
   # GitHub API rate limits
   github_api:
@@ -190,7 +202,7 @@ tasks:
       check: true # Enable validation stage
       inspect: true # Enable API capability inspection
 
-    # API configuration
+    # API configuration for validation and inspection
     api:
       base_url: "https://api.openai.com" # Base API endpoint
       completion_path: "/v1/chat/completions" # Chat completion endpoint
@@ -202,14 +214,14 @@ tasks:
       retries: 3 # Number of retries
       extra_headers: {} # Additional headers
 
-    # Pattern matching configuration
+    # Pattern matching configuration for key extraction
     patterns:
       key_pattern: "sk(?:-proj)?-[a-zA-Z0-9]{20}T3BlbkFJ[a-zA-Z0-9]{20}" # API key pattern
       address_pattern: "" # API endpoint pattern
       endpoint_pattern: "" # Additional endpoint pattern
       model_pattern: "" # Model name pattern
 
-    # Search conditions
+    # Search conditions for GitHub
     conditions:
       - query: '"T3BlbkFJ"' # Search query
         regex: "" # Optional regex pattern

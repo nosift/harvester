@@ -1,5 +1,8 @@
-# Basic Configuration Example
-global:
+# Simple Configuration Example
+# This file contains minimal configuration for quick setup
+
+# Global application settings
+global_config:
   # Working directory for data and results
   workspace: "./data"
   # GitHub credentials settings
@@ -9,7 +12,7 @@ global:
     # Load balancing strategy: round_robin or random
     strategy: "round_robin"
 
-# Pipeline configuration
+# Pipeline stage configuration
 pipeline:
   # Number of threads for each stage
   threads:
@@ -18,35 +21,28 @@ pipeline:
     check: 2 # Validation stage threads
     inspect: 1 # API capability inspection threads
 
-# Statistics configuration
+# Statistics display configuration
 stats:
   # Update interval in seconds
   interval: 10
   # Enable statistics display
   show: true
 
-# Monitoring settings
+# System monitoring settings
 monitoring:
   # Monitoring update interval in seconds
   update_interval: 2.0
   # Error rate threshold (0.0 to 1.0)
   error_threshold: 0.1
 
-# Persistence configuration
+# Data persistence configuration
 persistence:
   # Auto restore state on startup
   auto_restore: true
   # Shutdown timeout in seconds
   shutdown_timeout: 30
 
-# Worker pool settings
-worker:
-  # Minimum number of workers
-  min_workers: 1
-  # Maximum number of workers
-  max_workers: 5
-
-# Rate limiting configuration
+# Global rate limiting configuration
 ratelimits:
   # GitHub web scraping limits
   github_web:

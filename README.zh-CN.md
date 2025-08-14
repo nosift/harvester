@@ -33,16 +33,18 @@
 graph TB
     %% 入口层
     subgraph Entry["入口层"]
-        CLI["命令行<br/>(main.py)"]
-        App["应用程序<br/>(application.py)"]
+        CLI["命令行接口<br/>(main.py)"]
+        App["应用程序核心<br/>(main.py)"]
     end
 
     %% 管理层
     subgraph Management["管理层"]
         TaskMgr["任务管理器<br/>(manager/task.py)"]
-        Pipeline["流水线<br/>(manager/pipeline.py)"]
+        Pipeline["流水线管理器<br/>(manager/pipeline.py)"]
         WorkerMgr["工作线程管理器<br/>(manager/worker.py)"]
         QueueMgr["队列管理器<br/>(manager/queue.py)"]
+        Monitor["系统监控器<br/>(manager/monitor.py)"]
+        Shutdown["关闭协调器<br/>(manager/shutdown.py)"]
     end
 
     %% 处理层
@@ -50,12 +52,17 @@ graph TB
         StageBase["阶段框架<br/>(stage/base.py)"]
         StageImpl["阶段实现<br/>(stage/definition.py)"]
         StageReg["阶段注册<br/>(stage/registry.py)"]
+        StageFactory["阶段工厂<br/>(stage/factory.py)"]
+        StageResolver["依赖解析器<br/>(stage/resolver.py)"]
     end
 
     %% 服务层
     subgraph Service["服务层"]
-        SearchSvc["搜索服务<br/>(search/)"]
+        SearchSvc["搜索服务<br/>(search/client.py)"]
+        SearchProviders["搜索提供商<br/>(search/provider/)"]
         RefineSvc["查询优化<br/>(refine/)"]
+        RefineEngine["优化引擎<br/>(refine/engine.py)"]
+        RefineOptimizer["查询优化器<br/>(refine/optimizer.py)"]
     end
 
     %% 核心领域层
@@ -65,19 +72,23 @@ graph TB
         Tasks["任务定义<br/>(core/tasks.py)"]
         Enums["枚举<br/>(core/enums.py)"]
         Metrics["指标<br/>(core/metrics.py)"]
+        Auth["身份认证<br/>(core/auth.py)"]
     end
 
-    %% 横切关注点
-    subgraph CrossCutting["横切关注点"]
+    %% 基础设施层
+    subgraph Infrastructure["基础设施层"]
         Config["配置<br/>(config/)"]
-        Tools["基础设施<br/>(tools/)"]
+        Tools["工具与实用程序<br/>(tools/)"]
         Constants["常量<br/>(constant/)"]
+        Storage["存储与持久化<br/>(storage/)"]
     end
 
-    %% 状态管理（独立）
-    subgraph StateLayer["状态管理"]
-        StateMonitor["状态监控<br/>(state/monitor.py)"]
-        StateDisplay["状态显示<br/>(state/display.py)"]
+    %% 状态管理层
+    subgraph StateLayer["状态管理层"]
+        StateStatus["状态管理器<br/>(state/status.py)"]
+        StateCollector["状态收集器<br/>(state/collector.py)"]
+        StateDisplay["显示引擎<br/>(state/display.py)"]
+        StateBuilder["状态构建器<br/>(state/builder.py)"]
         StateModels["状态模型<br/>(state/models.py)"]
     end
 
@@ -85,6 +96,7 @@ graph TB
     subgraph External["外部系统"]
         GitHub["GitHub<br/>(API + Web)"]
         AIServices["AI服务<br/>提供商"]
+        FileSystem["文件系统<br/>(本地存储)"]
     end
 
     %% 依赖关系（自上而下）
@@ -92,20 +104,21 @@ graph TB
     Management --> Processing
     Processing --> Service
     Service --> Core
-    
-    %% 横切关注点依赖
-    Entry -.-> CrossCutting
-    Management -.-> CrossCutting
-    Processing -.-> CrossCutting
-    Service -.-> CrossCutting
-    
+
+    %% 基础设施依赖
+    Entry -.-> Infrastructure
+    Management -.-> Infrastructure
+    Processing -.-> Infrastructure
+    Service -.-> Infrastructure
+    Core -.-> Infrastructure
+
     %% 状态管理依赖
     Entry -.-> StateLayer
     Management -.-> StateLayer
-    
+
     %% 外部依赖
     Service --> External
-    Processing --> External
+    Infrastructure --> External
 ```
 
 ### 系统架构总览
@@ -119,11 +132,12 @@ graph TB
         ConfigMgmt[配置管理]
     end
     
-    %% 应用编排层
-    subgraph AppLayer["应用编排层"]
-        AppCore[应用核心]
-        TaskOrchestrator[任务编排器]
-        ResourceCoordinator[资源协调器]
+    %% 应用管理层
+    subgraph AppLayer["应用管理层"]
+        MainApp[主应用程序]
+        TaskManager[任务管理器]
+        ResourceManager[资源管理器]
+        ShutdownManager[关闭管理器]
     end
     
     %% 高级流水线引擎核心
@@ -211,14 +225,15 @@ graph TB
     %% 用户交互
     User --> CLI
     User --> ConfigMgmt
-    CLI --> AppCore
-    ConfigMgmt --> AppCore
+    CLI --> MainApp
+    ConfigMgmt --> MainApp
     
     %% 应用流程
-    AppCore --> TaskOrchestrator
-    AppCore --> ResourceCoordinator
-    TaskOrchestrator --> StageRegistry
-    TaskOrchestrator --> QueueManager
+    MainApp --> TaskManager
+    MainApp --> ResourceManager
+    MainApp --> ShutdownManager
+    TaskManager --> StageRegistry
+    TaskManager --> QueueManager
     
     %% 阶段管理流程
     StageRegistry --> DependencyResolver
@@ -243,12 +258,11 @@ graph TB
     ProcessingStages --> RecoveryEngine
     
     %% 提供商集成
-    TaskOrchestrator --> ProviderRegistry
-    ProviderRegistry --> ProviderFactory
-    ProviderFactory --> OpenAIProvider
-    ProviderFactory --> AnthropicProvider
-    ProviderFactory --> GeminiProvider
-    ProviderFactory --> CustomProviders
+    TaskManager --> ProviderRegistry
+    ProviderRegistry --> BaseProvider
+    BaseProvider --> OpenAIProvider
+    BaseProvider --> AnthropicProvider
+    BaseProvider --> CustomProviders
     
     %% 状态管理集成
     DAGEngine --> StateMonitor
@@ -259,11 +273,11 @@ graph TB
     MonitoringSystem --> User
     
     %% 基础设施集成
-    SearchEngine -.-> RateLimiting
-    ResourceCoordinator -.-> CredentialMgmt
-    ResourceCoordinator -.-> AgentRotation
-    AppCore -.-> LoggingSystem
-    ProcessingStages -.-> SecurityLayer
+    SearchClient -.-> RateLimiting
+    ResourceManager -.-> CredentialMgmt
+    ResourceManager -.-> AgentRotation
+    MainApp -.-> LoggingSystem
+    ProcessingStages -.-> RetryFramework
     
     %% 外部连接
     SearchEngine --> GitHubAPI
@@ -283,7 +297,7 @@ graph TB
     classDef externalClass fill:#ffebee,stroke:#d32f2f,stroke-width:2px
     
     class User,CLI,ConfigMgmt userClass
-    class AppCore,TaskOrchestrator,ResourceCoordinator appClass
+    class MainApp,TaskManager,ResourceManager,ShutdownManager appClass
     class StageRegistry,DependencyResolver,DAGEngine,QueueManager,LoadBalancer,TaskScheduler,SearchStage,AcquisitionStage,CheckStage,InspectStage coreClass
     class ProviderRegistry,ProviderFactory,OpenAIProvider,AnthropicProvider,GeminiProvider,CustomProviders providerClass
     class SearchEngine,QueryOptimizer,ValidationEngine,RecoveryEngine engineClass
@@ -353,10 +367,13 @@ sequenceDiagram
    - **命令行接口** (`main.py`): 命令行入口点，参数解析
    - **配置系统** (`config/`): 基于YAML的配置管理和验证
 
-### 2. **应用层** 
-   - **应用协调器** (`application.py`): 主应用生命周期管理
-   - **任务协调** (`manager/task.py`): 提供商和流水线协调
-   - **资源管理** (`manager/coordinator.py`): 全局资源协调
+### 2. **应用层**
+   - **应用核心** (`main.py`): 主应用生命周期管理和入口点
+   - **任务管理** (`manager/task.py`): 提供商协调和任务分发
+   - **资源协调** (`tools/coordinator.py`): 全局资源管理和协调
+   - **关闭管理** (`manager/shutdown.py`): 优雅关闭协调
+   - **工作线程管理** (`manager/worker.py`): 工作线程管理和扩展
+   - **队列管理** (`manager/queue.py`): 多队列协调和管理
 
 ### 3. **业务服务层**
    - **流水线引擎** (`manager/pipeline.py`): 多阶段处理编排
@@ -367,31 +384,65 @@ sequenceDiagram
 ### 4. **领域层**
    - **核心模型** (`core/models.py`): 业务领域对象和数据结构
    - **类型系统** (`core/types.py`): 接口定义和契约
-   - **业务逻辑** (`core/enums.py`, `core/tasks.py`): 领域规则和任务定义
-   - **指标统计** (`core/metrics.py`): 性能测量和分析
+   - **任务定义** (`core/tasks.py`): 领域特定任务类型和工作流
+   - **业务枚举** (`core/enums.py`): 领域枚举和常量
+   - **指标分析** (`core/metrics.py`): 性能测量和KPI跟踪
+   - **身份认证** (`core/auth.py`): 认证和授权逻辑
+   - **自定义异常** (`core/exceptions.py`): 领域特定异常处理
 
 ### 5. **基础设施层**
-   - **数据持久化** (`manager/persistence.py`): 结果存储和恢复
-   - **日志系统** (`tools/logger.py`): 结构化日志，支持API密钥脱敏
-   - **速率限制** (`tools/ratelimit.py`): 外部API的自适应速率控制
-   - **负载均衡** (`tools/balancer.py`): 资源分配策略
-   - **凭证管理** (`manager/credential.py`): 安全凭证轮换
-   - **代理管理** (`manager/agent.py`): 网页抓取的用户代理轮换
+   - **存储与持久化** (`storage/`): 结果存储、恢复和快照管理
+     - **原子操作** (`storage/atomic.py`): 带fsync的原子文件操作
+     - **结果管理** (`storage/persistence.py`): 多格式结果持久化
+     - **任务恢复** (`storage/recovery.py`): 任务恢复机制
+     - **分片管理** (`storage/shard.py`): 带轮换的NDJSON分片管理
+     - **快照管理** (`storage/snapshot.py`): 备份和恢复功能
+   - **工具与实用程序** (`tools/`): 基础设施工具和实用程序
+     - **日志系统** (`tools/logger.py`): 结构化日志，支持API密钥脱敏
+     - **速率限制** (`tools/ratelimit.py`): 带令牌桶算法的自适应速率控制
+     - **负载均衡** (`tools/balancer.py`): 资源分配策略
+     - **凭证管理** (`tools/credential.py`): 安全凭证轮换和管理
+     - **代理管理** (`tools/agent.py`): 网页抓取的用户代理轮换
+     - **重试框架** (`tools/retry.py`): 带退避策略的统一重试机制
+     - **资源池** (`tools/resources.py`): 资源池管理和优化
 
-### 6. **监控状态层**
-   - **状态收集** (`state/collector.py`): 系统指标收集
-   - **实时监控** (`state/monitor.py`): 性能和健康监控  
-   - **状态显示** (`state/display.py`): 用户友好的进度可视化
-   - **状态模型** (`state/models.py`): 监控数据结构
+### 6. **状态管理层**
+   - **状态管理** (`state/status.py`): 集中式状态管理和协调
+   - **状态收集** (`state/collector.py`): 系统指标收集和聚合
+   - **显示引擎** (`state/display.py`): 用户友好的进度可视化和格式化
+   - **状态构建器** (`state/builder.py`): 状态数据构建和转换
+   - **状态模型** (`state/models.py`): 监控数据结构和指标
+   - **状态配置** (`state/config.py`): 显示配置管理
+   - **字段映射** (`state/mapper.py`): 数据字段映射和转换
+   - **状态渲染** (`state/renderer.py`): 状态输出渲染和格式化
 
 ## 处理阶段
 
-系统实现了**4阶段流水线**，用于全面的API密钥发现：
+系统实现了**4阶段流水线**，用于全面的数据采集和验证：
 
-1. **搜索阶段**: 智能GitHub代码搜索，支持高级查询优化
-2. **采集阶段**: 从搜索结果中采集详细信息  
-3. **验证阶段**: 针对实际服务端点验证API密钥
-4. **检查阶段**: 为有效密钥检查API能力
+1. **搜索阶段** (`stage/definition.py:SearchStage`):
+   - 智能GitHub代码搜索，支持高级查询优化
+   - 多提供商搜索支持（API + Web）
+   - 使用数学优化算法进行查询优化
+   - 自适应限流的搜索执行
+
+2. **采集阶段** (`stage/definition.py:GatherStage`):
+   - 从搜索结果中采集详细信息
+   - 内容提取和解析
+   - 模式匹配进行关键信息识别
+   - 结构化数据收集和标准化
+
+3. **验证阶段** (`stage/definition.py:CheckStage`):
+   - 针对实际服务端点验证API密钥
+   - 身份验证验证和能力测试
+   - 服务可用性和响应验证
+   - 错误处理和重试机制
+
+4. **检查阶段** (`stage/definition.py:InspectStage`):
+   - 为有效密钥检查API能力
+   - 模型枚举和功能检测
+   - 服务限制和配额分析
+   - 全面的能力分析
 
 ## 高级查询优化引擎
 
@@ -567,63 +618,112 @@ sequenceDiagram
 
 ```
 harvester/
-├── config/             # 配置管理
-│   ├── defaults.py    # 默认配置值
-│   ├── factory.py     # 配置工厂类
-│   ├── loader.py      # 配置加载工具
-│   ├── schemas.py     # 配置模式定义
-│   └── validator.py   # 配置验证
-├── constant/          # 常量定义
+├── config/           # 配置管理
+│   ├── accessor.py   # 配置访问工具
+│   ├── defaults.py   # 默认配置值
+│   ├── loader.py     # 配置加载
+│   ├── schemas.py    # 配置模式
+│   ├── validator.py  # 配置验证
+│   └── __init__.py   # 包初始化
+├── constant/         # 系统常量
 │   ├── monitoring.py # 监控常量
 │   ├── runtime.py    # 运行时常量
 │   ├── search.py     # 搜索常量
-│   └── system.py     # 系统常量
-├── core/              # 核心类型和接口
+│   ├── system.py     # 系统常量
+│   └── __init__.py   # 包初始化
+├── core/             # 核心领域模型
+│   ├── auth.py       # 身份认证
 │   ├── enums.py      # 系统枚举
+│   ├── exceptions.py # 自定义异常
 │   ├── metrics.py    # 性能指标
 │   ├── models.py     # 核心数据模型
 │   ├── tasks.py      # 任务定义
-│   └── types.py      # 核心类型定义
-├── manager/           # 任务和资源管理
-│   ├── agent.py      # 代理管理
-│   ├── coordinator.py # 资源协调
-│   ├── credential.py  # 凭证管理
-│   ├── persistence.py # 结果持久化管理
+│   ├── types.py      # 核心类型定义
+│   └── __init__.py   # 包初始化
+├── examples/         # 配置示例
+│   ├── config-full.yaml    # 完整配置模板
+│   └── config-simple.yaml  # 基础配置模板
+├── manager/          # 任务和资源管理
+│   ├── base.py       # 基础管理类
+│   ├── monitor.py    # 系统监控
 │   ├── pipeline.py   # 流水线管理
 │   ├── queue.py      # 队列管理
-│   ├── recovery.py   # 任务恢复
+│   ├── shutdown.py   # 关闭协调
 │   ├── task.py       # 任务管理
-│   └── worker.py     # 工作线程管理
-├── refine/            # 查询优化
+│   ├── watcher.py    # 资源监控
+│   ├── worker.py     # 工作线程管理
+│   └── __init__.py   # 包初始化
+├── refine/           # 查询优化
+│   ├── config.py     # 优化配置
 │   ├── engine.py     # 优化引擎
 │   ├── generator.py  # 查询生成
 │   ├── optimizer.py  # 查询优化
-│   └── parser.py     # 查询解析
-├── search/            # 搜索引擎
+│   ├── parser.py     # 查询解析
+│   ├── segment.py    # 模式分段
+│   ├── splittability.py # 可分割性分析
+│   ├── strategies.py # 优化策略
+│   ├── types.py      # 优化类型定义
+│   └── __init__.py   # 包初始化
+├── search/           # 搜索引擎
 │   ├── client.py     # 搜索客户端
-│   └── provider/     # 提供商实现
+│   ├── provider/     # 提供商实现
+│   │   ├── anthropic.py    # Anthropic 提供商
+│   │   ├── azure.py        # Azure OpenAI 提供商
+│   │   ├── base.py         # 基础提供商类
+│   │   ├── bedrock.py      # AWS Bedrock 提供商
+│   │   ├── doubao.py       # 字节跳动豆包提供商
+│   │   ├── gemini.py       # Google Gemini 提供商
+│   │   ├── gooeyai.py      # GooeyAI 提供商
+│   │   ├── openai.py       # OpenAI 提供商
+│   │   ├── openai_like.py  # OpenAI 兼容提供商
+│   │   ├── qianfan.py      # 百度千帆提供商
+│   │   ├── registry.py     # 提供商注册表
+│   │   ├── stabilityai.py  # Stability AI 提供商
+│   │   ├── vertex.py       # Google Vertex AI 提供商
+│   │   └── __init__.py     # 包初始化
+│   └── __init__.py   # 包初始化
 ├── stage/            # 流水线阶段
 │   ├── base.py       # 基础阶段类
-│   ├── definition.py # 阶段定义
+│   ├── definition.py # 阶段实现
 │   ├── factory.py    # 阶段工厂
-│   └── registry.py   # 阶段注册
+│   ├── registry.py   # 阶段注册
+│   ├── resolver.py   # 依赖解析器
+│   └── __init__.py   # 包初始化
 ├── state/            # 状态管理
+│   ├── builder.py    # 状态构建器
 │   ├── collector.py  # 状态收集
-│   ├── display.py    # 状态显示
+│   ├── config.py     # 状态配置
+│   ├── display.py    # 显示引擎
+│   ├── mapper.py     # 字段映射
 │   ├── models.py     # 状态数据模型
-│   └── monitor.py    # 状态监控
-├── tools/            # 工具函数
+│   ├── renderer.py   # 状态渲染
+│   ├── status.py     # 状态管理器
+│   └── __init__.py   # 包初始化
+├── storage/          # 存储和持久化
+│   ├── atomic.py     # 原子文件操作
+│   ├── persistence.py # 结果持久化
+│   ├── recovery.py   # 任务恢复
+│   ├── shard.py      # NDJSON 分片管理
+│   ├── snapshot.py   # 快照管理
+│   └── __init__.py   # 包初始化
+├── tools/            # 工具和实用程序
+│   ├── agent.py      # 用户代理管理
 │   ├── balancer.py   # 负载均衡
-│   ├── logger.py     # 日志工具
+│   ├── coordinator.py # 资源协调
+│   ├── credential.py # 凭证管理
+│   ├── logger.py     # 日志系统
 │   ├── ratelimit.py  # 速率限制
-│   └── utils.py      # 通用工具
-├── application.py    # 应用程序类
-├── config.yaml       # 配置文件
-├── main.py          # 入口点
-└── README.md        # 文档
-├── examples/         # 配置示例
-    ├── config-full.yaml    # 完整配置模板
-    └── config-simple.yaml  # 基础配置模板
+│   ├── resources.py  # 资源池
+│   ├── retry.py      # 重试框架
+│   ├── utils.py      # 通用工具
+│   └── __init__.py   # 包初始化
+├── .gitignore        # Git 忽略规则
+├── LICENSE           # 许可证文件
+├── main.py           # 入口点和应用程序核心
+├── README.md         # 英文文档
+├── README.zh-CN.md   # 中文文档
+├── requirements.txt  # Python 依赖
+└── __init__.py       # 根包初始化
 ```
 
 ## 高级功能

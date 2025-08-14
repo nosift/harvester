@@ -170,7 +170,7 @@ def get_default_config() -> Dict[str, Any]:
             "snapshot_interval": 300,
             "auto_restore": True,
             "shutdown_timeout": 30,
-            "legacy_enabled": False,
+            "format": "txt",
         },
         "worker_manager": {
             "enabled": False,
