@@ -25,6 +25,8 @@ from constant.system import (
     DEFAULT_CONFIG_FILE,
     DEFAULT_SHUTDOWN_TIMEOUT,
     DEFAULT_STATS_INTERVAL,
+    FORCE_EXIT_GRACE_PERIOD,
+    SHUTDOWN_MONITOR_INTERVAL,
 )
 from core.enums import SystemState
 from manager.monitor import MultiProviderMonitoring, create_monitoring_system
@@ -145,7 +147,7 @@ class AsyncPipelineApplication:
             self.shutdown_coordinator = ShutdownCoordinator(
                 components=components,
                 shutdown_timeout=float(getattr(self.config.persistence, "shutdown_timeout", DEFAULT_SHUTDOWN_TIMEOUT)),
-                monitor_interval=5.0,  # Check every 2 seconds by default
+                monitor_interval=SHUTDOWN_MONITOR_INTERVAL,
             )
             logger.info("Shutdown coordinator initialized")
 
@@ -453,12 +455,12 @@ class AsyncPipelineApplication:
 
             if self.signal_count == 1:
                 logger.info(f"Received signal {signum}, initiating graceful shutdown...")
-                logger.info("Press Ctrl+C again within 5 seconds to force exit")
+                logger.info(f"Press Ctrl+C again within {FORCE_EXIT_GRACE_PERIOD} seconds to force exit")
                 self.shutdown_event.set()
 
                 # Set up force exit timer for second signal
                 def force_exit_on_second_signal():
-                    time.sleep(5.0)
+                    time.sleep(FORCE_EXIT_GRACE_PERIOD)
                     if self.signal_count >= 2:
                         logger.warning("Force exit due to repeated signals")
                         self._force_exit()
@@ -658,7 +660,7 @@ Examples:
                         f"{monitoring_stats.get('total_links', 0)} links processed"
                     )
         except Exception as e:
-            logger.warning(f"Could not retrieve final status: {e}")
+            logger.error(f"Could not retrieve final status: {e}")
 
         # Flush logs before exit
         try:

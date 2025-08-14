@@ -24,9 +24,15 @@ logger = get_logger("search")
 
 from constant.search import API_RESULTS_PER_PAGE, WEB_RESULTS_PER_PAGE
 from constant.system import (
+    CHAT_RETRY_INTERVAL,
+    COLLECT_RETRY_INTERVAL,
     CTX,
     DEFAULT_HEADERS,
     DEFAULT_QUESTION,
+    GITHUB_API_INTERVAL,
+    GITHUB_API_RATE_LIMIT_BACKOFF,
+    GITHUB_API_TIMEOUT,
+    GITHUB_WEB_COUNT_DELAY_MAX,
     NO_RETRY_ERROR_CODES,
     SERVICE_TYPE_GITHUB_API,
     SERVICE_TYPE_GITHUB_WEB,
@@ -107,7 +113,7 @@ class GitHubClient:
         if status == 403 and service == SERVICE_TYPE_GITHUB_API:
             if "rate limit" in message.lower():
                 logger.warning("GitHub API rate limit exceeded, backing off")
-                time.sleep(60)  # Wait 1 minute for rate limit reset
+                time.sleep(GITHUB_API_RATE_LIMIT_BACKOFF)  # Wait for rate limit reset
 
     def get(
         self,
@@ -358,7 +364,7 @@ def chat(
             output(code=code, message=traceback.format_exc(), debug=True)
 
         attempt += 1
-        time.sleep(1)
+        time.sleep(CHAT_RETRY_INTERVAL)
 
     return code, message
 
@@ -399,7 +405,7 @@ def search_github_api(query: str, token: str, page: int = 1, peer_page: int = AP
     }
 
     client = get_github_client()
-    content = client.get(url=url, headers=headers, interval=2, timeout=30)
+    content = client.get(url=url, headers=headers, interval=GITHUB_API_INTERVAL, timeout=GITHUB_API_TIMEOUT)
     if isblank(content):
         return []
     try:
@@ -488,7 +494,7 @@ def search_api_with_count(
     }
 
     client = get_github_client()
-    content = client.get(url=url, headers=headers, interval=2, timeout=30)
+    content = client.get(url=url, headers=headers, interval=GITHUB_API_INTERVAL, timeout=GITHUB_API_TIMEOUT)
     if isblank(content):
         return [], 0, ""
 
@@ -592,7 +598,7 @@ def estimate_web_total(query: str, session: str, content: Optional[str] = None) 
         }
 
         # Random delay to ensure count is calculated
-        time.sleep(random.random() * 2)
+        time.sleep(random.random() * GITHUB_WEB_COUNT_DELAY_MAX)
 
         client = get_github_client()
         response = client.get(url=url, headers=headers, interval=1)
@@ -712,7 +718,7 @@ def collect(
     if text:
         content = text
     else:
-        content = http_get(url=url, retries=retries, interval=1)
+        content = http_get(url=url, retries=retries, interval=COLLECT_RETRY_INTERVAL)
 
     if not content:
         return []

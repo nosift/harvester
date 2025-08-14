@@ -150,7 +150,7 @@ class ResultManager:
             data: Data to add (single item or list)
         """
         if result_type not in self.buffers:
-            logger.warning(f"[persist] unknown result type: {result_type}")
+            logger.error(f"[persist] unknown result type: {result_type}")
             return
 
         # Handle different data types
