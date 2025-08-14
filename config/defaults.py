@@ -172,7 +172,7 @@ def get_default_config() -> Dict[str, Any]:
             "shutdown_timeout": 30,
             "format": "txt",
         },
-        "worker_manager": {
+        "worker": {
             "enabled": False,
             "min_workers": 1,
             "max_workers": 10,

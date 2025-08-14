@@ -25,7 +25,6 @@ import logging.handlers
 import os
 import platform
 import re
-import signal
 import sys
 import time
 from datetime import datetime
@@ -764,8 +763,8 @@ def init_logging(level: str = "INFO", cleanup_days: int = 7, file_format: str = 
     redaction_filter = RedactionFilter()
     logging.getLogger().addFilter(redaction_filter)
 
-    # Setup signal handlers for graceful shutdown
-    _setup_signal_handlers()
+    # Setup exit handlers for graceful shutdown
+    _setup_exit_handlers()
 
     # Log initialization message
     logger = get_logger("main")
@@ -774,22 +773,10 @@ def init_logging(level: str = "INFO", cleanup_days: int = 7, file_format: str = 
     logger.info(f"Log cleanup: keeping files for {cleanup_days} days")
 
 
-def _setup_signal_handlers():
-    """Setup signal handlers for graceful logging shutdown"""
-
-    def signal_handler(_signum, _frame):
-        """Handle shutdown signals"""
-        shutdown_logging()
-
-    # Register signal handlers (only if not already registered)
-    try:
-        signal.signal(signal.SIGINT, signal_handler)
-        signal.signal(signal.SIGTERM, signal_handler)
-    except (ValueError, OSError):
-        # Signal handling might not be available in some environments
-        pass
-
-    # Register exit handler
+def _setup_exit_handlers():
+    """Setup exit handlers for graceful logging shutdown"""
+    # Only register exit handler, let main application handle signals
+    # to avoid conflicts with application-level signal handling
     atexit.register(shutdown_logging)
 
 

@@ -518,24 +518,6 @@ def create_sample_config(output_path: str = DEFAULT_CONFIG_FILE) -> bool:
     return True
 
 
-def setup_signal_handlers(app: "AsyncPipelineApplication") -> None:
-    """Setup signal handlers for graceful shutdown"""
-
-    def signal_handler(signum, _frame):
-        """Handle shutdown signals gracefully"""
-        signal_name = signal.Signals(signum).name
-        print(f"\nReceived {signal_name} signal. Initiating graceful shutdown...")
-        app.shutdown()
-
-    # Register signal handlers
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-
-    # On Windows, also handle SIGBREAK
-    if hasattr(signal, "SIGBREAK"):
-        signal.signal(signal.SIGBREAK, signal_handler)
-
-
 def create_application(config_path: str = DEFAULT_CONFIG_FILE, style: str = "classic") -> AsyncPipelineApplication:
     """Factory function to create application instance"""
     app = AsyncPipelineApplication(config_path)
@@ -617,9 +599,6 @@ Examples:
     # Create and configure application
     app = create_application(args.config, style=args.style)
     app.stats_display_interval = args.stats_interval
-
-    # Setup signal handlers for graceful shutdown
-    setup_signal_handlers(app)
 
     try:
         logger.info("Starting Async Pipeline Application")
