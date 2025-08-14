@@ -646,10 +646,7 @@ Examples:
     finally:
         logger.info("Shutting down...")
         try:
-            # Ensure graceful shutdown is called
-            app._graceful_shutdown()
-
-            # Get final status
+            # Get final status (graceful shutdown already called in app.run())
             status = app.get_status()
             logger.info(f"Summary: Runtime {status.runtime:.1f}s")
 

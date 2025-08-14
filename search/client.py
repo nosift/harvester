@@ -36,13 +36,13 @@ from core.models import RateLimitConfig
 from core.types import ResourceProvider
 from tools.coordinator import get_user_agent
 from tools.ratelimit import RateLimiter
-from tools.resources import ResourcePool, managed_network
+from tools.resources import managed_network
 from tools.retry import network_retry
 from tools.utils import handle_exceptions
 
 
 class GitHubClient:
-    """GitHub-specific HTTP client with rate limiting, dependency injection, and resource management"""
+    """GitHub-specific HTTP client with rate limiting and dependency injection"""
 
     def __init__(self, limiter: Optional[RateLimiter] = None, resource_provider: Optional[ResourceProvider] = None):
         """Initialize GitHub client
@@ -53,11 +53,6 @@ class GitHubClient:
         """
         self.limiter = limiter
         self.resource_provider = resource_provider
-
-        # Initialize connection pool for reusing HTTP connections
-        self._connection_pool = ResourcePool(
-            factory=lambda: None, max_size=10, max_age=300.0  # Placeholder for connection factory
-        )
 
     def _get_user_agent(self) -> str:
         """Get User-Agent string using dependency injection or fallback
@@ -351,7 +346,7 @@ def chat(
                     # not a json string, use reason instead
                     if not message.startswith("{") or not message.endswith("}"):
                         message = e.reason
-                except:
+                except Exception:
                     message = e.reason
 
                 # print http status code and error message
@@ -454,7 +449,7 @@ def search_web_with_count(
             links.add(f"https://github.com{uri}")
 
         results = list(links)
-    except:
+    except Exception:
         results = []
 
     # Call extract callback if provided
@@ -513,7 +508,7 @@ def search_api_with_count(
             links.add(link)
 
         return list(links), total, content
-    except:
+    except Exception:
         return [], 0, ""
 
 
@@ -565,7 +560,7 @@ def estimate_web_total(query: str, session: str, content: Optional[str] = None) 
 
     try:
         message = urllib.parse.unquote_plus(query)
-    except:
+    except Exception:
         message = query
 
     try:
@@ -696,7 +691,7 @@ def search_code(
                 logger.error(f"[search] callback failed: {e}")
 
         return results, content
-    except:
+    except Exception:
         return [], ""
 
 
