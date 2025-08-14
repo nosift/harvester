@@ -531,6 +531,27 @@ sequenceDiagram
 - **安全性**: 凭证管理、API密钥脱敏和安全存储
 - **监控**: 实时分析、警报和性能可视化
 
+## 系统要求
+
+### **最低要求**
+- **Python**: 3.8+ (推荐 3.9+)
+- **操作系统**: Windows 10+, macOS 10.15+, Linux (Ubuntu 18.04+, CentOS 7+)
+- **内存**: 2GB RAM (大规模操作推荐 4GB+)
+- **存储**: 1GB 可用空间 (结果存储需要额外空间)
+- **网络**: 稳定的互联网连接用于API访问
+
+### **推荐配置**
+- **Python**: 3.11+ 以获得最佳性能
+- **内存**: 8GB+ RAM 用于并发处理
+- **CPU**: 多核处理器 (推荐 4+ 核心)
+- **存储**: SSD 以获得更好的 I/O 性能
+- **网络**: 高带宽连接用于大规模数据采集
+
+### **依赖项**
+- **核心**: `pydantic`, `pyyaml`, `requests`, `aiohttp`
+- **可选**: `uvloop` (Linux/macOS 性能提升)
+- **开发**: `pytest`, `black`, `mypy` (贡献者使用)
+
 ## 快速开始
 
 1. **安装**
@@ -746,6 +767,109 @@ harvester/
    - 可配置监控系统
    - 灵活的恢复策略
 
+## 故障排除
+
+### **常见问题**
+
+#### **1. 安装问题**
+```bash
+# 问题：pip 安装失败
+# 解决方案：升级 pip 并使用虚拟环境
+python -m pip install --upgrade pip
+python -m venv venv
+
+# Linux/macOS
+source venv/bin/activate
+
+# Windows
+venv\Scripts\activate
+
+pip install -r requirements.txt
+```
+
+#### **2. 配置错误**
+```bash
+# 问题：配置验证失败
+# 解决方案：验证配置文件
+python main.py --validate
+
+# 问题：缺少配置文件
+# 解决方案：从示例创建
+cp examples/config-simple.yaml config.yaml
+```
+
+#### **3. 速率限制问题**
+```bash
+# 问题：API 请求过多
+# 解决方案：在配置中调整速率限制
+rate_limits:
+  github_api:
+    base_rate: 0.1  # 降低速率
+    adaptive: true  # 启用自适应限制
+```
+
+#### **4. 内存问题**
+```bash
+# 问题：内存使用过高
+# 解决方案：减少批处理大小和线程数
+pipeline:
+  threads:
+    search: 1
+    gather: 2  # 从默认值减少
+persistence:
+  batch_size: 25  # 从默认值 50 减少
+```
+
+#### **5. 网络连接问题**
+```bash
+# 问题：连接超时
+# 解决方案：增加超时值
+api:
+  timeout: 60  # 从默认值 30 增加
+  retries: 5   # 增加重试次数
+```
+
+### **调试模式**
+```bash
+# 启用调试日志
+python main.py --log-level DEBUG
+
+# 将调试输出保存到文件
+python main.py --log-level DEBUG > debug.log 2>&1
+```
+
+## 安全考虑
+
+### **凭证管理**
+- **永远不要提交凭证** 到版本控制系统
+- **使用环境变量** 存储敏感配置
+- **定期轮换凭证** 以降低暴露风险
+- **实施最小权限** 访问原则
+
+### **数据保护**
+```yaml
+# 示例：安全凭证配置
+global_config:
+  github_credentials:
+    sessions:
+      - "${GITHUB_SESSION_1}"  # 使用环境变量
+      - "${GITHUB_SESSION_2}"
+    tokens:
+      - "${GITHUB_TOKEN_1}"
+```
+
+### **隐私考虑**
+- **遵守 robots.txt** 和网站服务条款
+- **实施速率限制** 避免压垮目标服务
+- **日志脱敏** 自动从日志中移除敏感数据
+- **数据保留策略** 应符合适用法规
+
+### **合规指南**
+- **在生产使用前审查法律要求**
+- **获得必要的数据收集许可**
+- **在需要时实施数据匿名化**
+- **记录数据处理** 活动以确保合规
+
 ## 注意事项
 
 1. **限制**
@@ -877,6 +1001,49 @@ harvester/
 - 用户应当尊重他人的知识产权和隐私权
 
 **使用本软件即表示您已阅读、理解并同意上述条款。使用风险自负。**
+
+## 配置参考
+
+### 持久化配置
+
+系统通过配置文件中的 `persistence` 部分支持灵活的持久化选项：
+
+- **`batch_size`**: 批量保存结果的大小
+  - 影响：内存使用和磁盘I/O频率
+  - 默认值：50
+  - 建议范围：10-200
+
+- **`save_interval`**: 结果保存间隔（秒）
+  - 影响：数据丢失风险和系统性能
+  - 默认值：30秒
+  - 最小值：5秒
+
+- **`queue_interval`**: 队列状态保存间隔（秒）
+  - 影响：任务恢复能力和磁盘使用
+  - 默认值：60秒
+  - 最小值：10秒
+
+- **`snapshot_interval`**: 定期快照间隔（秒）
+  - 影响：系统恢复能力和存储使用
+  - 默认值：300秒（5分钟）
+  - 最小值：60秒
+
+- **`shutdown_timeout`**: 关闭期间所有后台线程连接的统一超时时间
+  - 影响：持久化刷新线程、队列保存线程、工作管理器线程
+  - 默认值：30秒
+  - 最小值：1秒
+
+### 输出样式
+
+应用程序支持两种输出样式：
+
+```bash
+# 经典样式（简洁输出）
+python main.py --style classic
+
+# 详细样式（详细输出）
+python main.py --style detailed
+```
 
 ## 联系方式
 

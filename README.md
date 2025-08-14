@@ -546,6 +546,27 @@ The system features a sophisticated **Query Optimization Engine** with mathemati
 - **Security**: Credential management, API key redaction, and secure storage
 - **Monitoring**: Real-time analytics, alerting, and performance visualization
 
+## System Requirements
+
+### **Minimum Requirements**
+- **Python**: 3.8+ (3.9+ recommended)
+- **Operating System**: Windows 10+, macOS 10.15+, Linux (Ubuntu 18.04+, CentOS 7+)
+- **Memory**: 2GB RAM (4GB+ recommended for large-scale operations)
+- **Storage**: 1GB free space (additional space needed for results storage)
+- **Network**: Stable internet connection for API access
+
+### **Recommended Configuration**
+- **Python**: 3.11+ for optimal performance
+- **Memory**: 8GB+ RAM for concurrent processing
+- **CPU**: Multi-core processor (4+ cores recommended)
+- **Storage**: SSD for better I/O performance
+- **Network**: High-bandwidth connection for large-scale data acquisition
+
+### **Dependencies**
+- **Core**: `pydantic`, `pyyaml`, `requests`, `aiohttp`
+- **Optional**: `uvloop` (Linux/macOS performance boost)
+- **Development**: `pytest`, `black`, `mypy` (for contributors)
+
 ## Quick Start
 
 1. **Installation**
@@ -760,6 +781,109 @@ harvester/
    - Custom pipeline stages
    - Configurable monitoring system
    - Flexible recovery strategies
+
+## Troubleshooting
+
+### **Common Issues**
+
+#### **1. Installation Problems**
+```bash
+# Issue: pip install fails
+# Solution: Upgrade pip and use virtual environment
+python -m pip install --upgrade pip
+python -m venv venv
+
+# Linux/macOS
+source venv/bin/activate
+
+# Windows
+venv\Scripts\activate
+
+pip install -r requirements.txt
+```
+
+#### **2. Configuration Errors**
+```bash
+# Issue: Configuration validation fails
+# Solution: Validate configuration file
+python main.py --validate
+
+# Issue: Missing configuration file
+# Solution: Create from example
+cp examples/config-simple.yaml config.yaml
+```
+
+#### **3. Rate Limiting Issues**
+```bash
+# Issue: Too many API requests
+# Solution: Adjust rate limits in config
+rate_limits:
+  github_api:
+    base_rate: 0.1  # Reduce rate
+    adaptive: true  # Enable adaptive limiting
+```
+
+#### **4. Memory Issues**
+```bash
+# Issue: High memory usage
+# Solution: Reduce batch sizes and thread counts
+pipeline:
+  threads:
+    search: 1
+    gather: 2  # Reduce from default
+persistence:
+  batch_size: 25  # Reduce from default 50
+```
+
+#### **5. Network Connectivity**
+```bash
+# Issue: Connection timeouts
+# Solution: Increase timeout values
+api:
+  timeout: 60  # Increase from default 30
+  retries: 5   # Increase retry attempts
+```
+
+### **Debug Mode**
+```bash
+# Enable debug logging
+python main.py --log-level DEBUG
+
+# Save debug output to file
+python main.py --log-level DEBUG > debug.log 2>&1
+```
+
+## Security Considerations
+
+### **Credential Management**
+- **Never commit credentials** to version control
+- **Use environment variables** for sensitive configuration
+- **Rotate credentials regularly** to minimize exposure risk
+- **Implement least privilege** access for API keys
+
+### **Data Protection**
+```yaml
+# Example: Secure credential configuration
+global_config:
+  github_credentials:
+    sessions:
+      - "${GITHUB_SESSION_1}"  # Use environment variables
+      - "${GITHUB_SESSION_2}"
+    tokens:
+      - "${GITHUB_TOKEN_1}"
+```
+
+### **Privacy Considerations**
+- **Respect robots.txt** and website terms of service
+- **Implement rate limiting** to avoid overwhelming target services
+- **Log redaction** automatically removes sensitive data from logs
+- **Data retention policies** should comply with applicable regulations
+
+### **Compliance Guidelines**
+- **Review legal requirements** before using in production
+- **Obtain necessary permissions** for data collection
+- **Implement data anonymization** where required
+- **Document data processing** activities for compliance
 
 ## Important Notes
 

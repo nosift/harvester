@@ -1,0 +1,14 @@
+# Core Dependencies
+PyYAML
+
+# Development Dependencies (Optional)
+# Uncomment if needed for development
+# pytest
+# pytest-asyncio
+# black
+# mypy
+# flake8
+
+# Performance Dependencies (Optional)
+# Uncomment for better performance on Linux/macOS
+# uvloop; sys_platform != "win32"
