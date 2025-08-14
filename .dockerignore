@@ -1,0 +1,110 @@
+# Git and version control
+.git
+.gitignore
+.github/
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+.env/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Testing and coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Logs and temporary files
+*.log
+logs/
+.log/
+tmp/
+temp/
+
+# Data and output directories
+data/
+output/
+results/
+*.csv
+*.json
+*.jsonl
+*.ndjson
+
+# Configuration backups
+*.bak
+*.backup
+config.yaml.bak
+data/config.yaml.bak
+
+# Docker files
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# CI/CD files
+.travis.yml
+.circleci/
+.github/workflows/
+Jenkinsfile
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Test files
+test_*.py
+*_test.py
+tests/
+
+# Application specific excludes
+queue_state/
+providers/
+.issues/

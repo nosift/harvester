@@ -132,9 +132,30 @@ class ConfigLoader:
             GlobalConfig: Parsed global configuration
         """
         credentials_data = data.get("github_credentials", {})
+
+        # Get sessions and tokens from config
+        sessions = credentials_data.get("sessions", [])
+        tokens = credentials_data.get("tokens", [])
+
+        # Filter out placeholder values from config
+        valid_sessions = [s for s in sessions if s and not s.startswith("your_")]
+        valid_tokens = [t for t in tokens if t and not t.startswith("your_")]
+
+        # If both valid sessions and tokens are empty, try to read from environment variables
+        if not valid_sessions and not valid_tokens:
+            # Try to read GitHub sessions from GITHUB_SESSIONS environment variable
+            github_sessions = os.getenv("GITHUB_SESSIONS")
+            if github_sessions:
+                valid_sessions = [s.strip() for s in github_sessions.split(",") if s.strip()]
+
+            # Try to read GitHub tokens from GITHUB_TOKENS environment variable
+            github_tokens = os.getenv("GITHUB_TOKENS")
+            if github_tokens:
+                valid_tokens = [t.strip() for t in github_tokens.split(",") if t.strip()]
+
         credentials = CredentialsConfig(
-            sessions=credentials_data.get("sessions", []),
-            tokens=credentials_data.get("tokens", []),
+            sessions=valid_sessions,
+            tokens=valid_tokens,
             strategy=LoadBalanceStrategy(credentials_data.get("strategy", "round_robin")),
         )
 
