@@ -18,11 +18,12 @@ from .segment import (
     OptionalSegment,
     Segment,
 )
+from .types import IEnumerationOptimizer
 
 logger = get_logger("refine")
 
 
-class EnumerationOptimizer:
+class EnumerationOptimizer(IEnumerationOptimizer):
     """Optimize enumeration strategy for regex patterns."""
 
     def __init__(self, max_queries: int = 100000000):

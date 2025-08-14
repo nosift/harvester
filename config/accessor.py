@@ -1,16 +1,14 @@
 #!/usr/bin/env python3
 
 """
-Configuration Factory
+Configuration Accessor
 
-This module provides factory methods for creating configuration objects.
-It offers type-safe configuration access and convenient configuration creation.
+This module provides accessor methods for accessing configuration objects.
+It offers type-safe configuration access.
 
 Key Features:
 - Type-safe configuration access
-- Factory methods for common configurations
-- Configuration object creation
-- Legacy compatibility support
+- Accessor methods for common configurations
 """
 
 from typing import Optional
@@ -28,11 +26,11 @@ from .schemas import (
 )
 
 
-class ConfigFactory:
-    """Factory for creating configuration objects"""
+class ConfigAccessor:
+    """Accessor for retrieving configuration objects"""
 
     def __init__(self, config: Config):
-        """Initialize configuration factory
+        """Initialize configuration accessor
 
         Args:
             config: Main configuration object

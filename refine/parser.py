@@ -15,11 +15,12 @@ from .segment import (
     OptionalSegment,
     Segment,
 )
+from .types import IRegexParser
 
 logger = get_logger("refine")
 
 
-class RegexParser:
+class RegexParser(IRegexParser):
     """Parse regex patterns into segment sequences."""
 
     def __init__(self, max_quantifier_length: int = 150):
@@ -30,10 +31,8 @@ class RegexParser:
         if not pattern:
             return []
 
-        # Use local variables for thread safety
-        pos = 0
-        length = len(pattern)
-        segments = []
+        pos, length = 0, len(pattern)
+        segments = list()
 
         try:
             while pos < length:

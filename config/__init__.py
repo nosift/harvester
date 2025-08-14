@@ -21,7 +21,7 @@ Usage:
     display_config = config.display
 """
 
-from .factory import ConfigFactory
+from .accessor import ConfigAccessor
 from .loader import ConfigLoader
 from .schemas import (
     Config,
@@ -91,7 +91,7 @@ __all__ = [
     "SystemMonitoringConfig",
     "TaskConfig",
     "WorkerManagerConfig",
-    "ConfigFactory",
+    "ConfigAccessor",
     "ConfigLoader",
     "load_config",
     "get_config",

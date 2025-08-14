@@ -9,8 +9,21 @@ from .engine import RefineEngine
 from .generator import QueryGenerator
 from .optimizer import EnumerationOptimizer
 from .parser import RegexParser
-from .segment import CharClassSegment, EnumerationStrategy, FixedSegment, GroupSegment, OptionalSegment, Segment
+from .segment import (
+    CharClassSegment,
+    EnumerationStrategy,
+    FixedSegment,
+    GroupSegment,
+    OptionalSegment,
+    Segment,
+)
 from .splittability import SplittabilityAnalyzer
+from .types import (
+    IEnumerationOptimizer,
+    IQueryGenerator,
+    IRegexParser,
+    ISplittabilityAnalyzer,
+)
 
 __all__ = [
     "RegexParser",
@@ -24,4 +37,8 @@ __all__ = [
     "OptionalSegment",
     "GroupSegment",
     "EnumerationStrategy",
+    "IRegexParser",
+    "IEnumerationOptimizer",
+    "IQueryGenerator",
+    "ISplittabilityAnalyzer",
 ]

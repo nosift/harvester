@@ -17,6 +17,12 @@ from .optimizer import EnumerationOptimizer
 from .parser import RegexParser
 from .segment import CharClassSegment, FixedSegment, GroupSegment, OptionalSegment
 from .splittability import SplittabilityAnalyzer
+from .types import (
+    IEnumerationOptimizer,
+    IQueryGenerator,
+    IRegexParser,
+    ISplittabilityAnalyzer,
+)
 
 logger = get_logger("refine")
 
@@ -27,15 +33,24 @@ _lock = threading.Lock()
 class RefineEngine:
     """Main interface for regex pattern processing."""
 
-    def __init__(self, config: Optional[RefineEngineConfig] = None):
+    def __init__(
+        self,
+        config: Optional[RefineEngineConfig] = None,
+        parser: Optional[IRegexParser] = None,
+        optimizer: Optional[IEnumerationOptimizer] = None,
+        generator: Optional[IQueryGenerator] = None,
+        splittability: Optional[ISplittabilityAnalyzer] = None,
+    ):
         if config is None:
             config = RefineEngineConfig()
 
         self.config = config
-        self.parser = RegexParser(config.max_quantifier_length)
-        self.optimizer = EnumerationOptimizer(config.max_queries)
-        self.generator = QueryGenerator(config.max_depth)
-        self.splittability = SplittabilityAnalyzer(
+
+        # Use injected dependencies or create defaults
+        self.parser = parser or RegexParser(config.max_quantifier_length)
+        self.optimizer = optimizer or EnumerationOptimizer(config.max_queries)
+        self.generator = generator or QueryGenerator(config.max_depth)
+        self.splittability = splittability or SplittabilityAnalyzer(
             enable_recursion_limit=config.enable_recursion_limit,
             enable_value_threshold=config.enable_value_threshold,
             enable_resource_limit=config.enable_resource_limit,

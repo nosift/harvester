@@ -16,11 +16,12 @@ from .segment import (
     OptionalSegment,
     Segment,
 )
+from .types import ISplittabilityAnalyzer
 
 logger = get_logger("refine")
 
 
-class SplittabilityAnalyzer:
+class SplittabilityAnalyzer(ISplittabilityAnalyzer):
     """Analyze whether a regex pattern can be safely split further based on mathematical principles."""
 
     def __init__(

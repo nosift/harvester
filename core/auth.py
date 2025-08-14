@@ -7,6 +7,7 @@ This module provides a centralized authentication service that can be configured
 by upper layers and used by lower layers without creating circular dependencies.
 """
 
+import threading
 from typing import Callable, Optional
 
 from .types import AuthProvider
@@ -16,6 +17,7 @@ class AuthService:
     """Centralized authentication service with dependency injection."""
 
     _instance: Optional["AuthService"] = None
+    _lock = threading.Lock()
     _session_provider: Optional[Callable[[], Optional[str]]] = None
     _token_provider: Optional[Callable[[], Optional[str]]] = None
     _user_agent_provider: Optional[Callable[[], str]] = None
@@ -26,10 +28,18 @@ class AuthService:
 
     @classmethod
     def get_instance(cls) -> "AuthService":
-        """Get singleton instance."""
+        """Get thread-safe singleton instance."""
         if cls._instance is None:
-            cls._instance = cls()
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = cls()
         return cls._instance
+
+    @classmethod
+    def reset_instance(cls) -> None:
+        """Reset singleton instance (mainly for testing)."""
+        with cls._lock:
+            cls._instance = None
 
     @classmethod
     def configure(

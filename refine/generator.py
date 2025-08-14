@@ -18,11 +18,12 @@ from .segment import (
     OptionalSegment,
     Segment,
 )
+from .types import IQueryGenerator
 
 logger = get_logger("refine")
 
 
-class QueryGenerator:
+class QueryGenerator(IQueryGenerator):
     """Generate queries from enumeration strategy."""
 
     def __init__(self, max_depth: int = 3):
