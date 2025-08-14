@@ -13,6 +13,7 @@ from constant.runtime import StandardPipelineStage
 from core.models import AllRecoveredTasks, ProviderPatterns, RecoveredTasks
 from stage.factory import TaskFactory
 from tools.logger import get_logger
+from tools.utils import handle_exceptions
 
 logger = get_logger("storage")
 
@@ -227,6 +228,7 @@ class TaskRecoveryStrategy:
 
         return patterns
 
+    @handle_exceptions(default_result=None, log_level="warning")
     def _get_stage_enum(self, stage_name: str) -> Optional[StandardPipelineStage]:
         """Get stage enum from string name safely
 
@@ -236,10 +238,7 @@ class TaskRecoveryStrategy:
         Returns:
             PipelineStage enum or None if not found
         """
-        try:
-            return StandardPipelineStage(stage_name)
-        except ValueError:
-            return None
+        return StandardPipelineStage(stage_name)
 
     def _get_provider_config(self, provider_name: str) -> Optional[Any]:
         """Get provider configuration

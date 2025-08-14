@@ -9,6 +9,7 @@ It replaces all scattered display methods throughout the system.
 
 
 from tools.logger import get_logger
+from tools.utils import handle_exceptions
 
 from .collector import StatusCollector
 from .config import DisplayConfigManager
@@ -95,23 +96,17 @@ class StatusManager:
         """Get current system status without displaying it"""
         return self.data_collector.status(force_refresh)
 
+    @handle_exceptions(default_result=False, log_level="error")
     def is_system_healthy(self) -> bool:
         """Check if system is in healthy state"""
-        try:
-            status = self.get_system_status()
-            return status.is_healthy()
-        except Exception as e:
-            logger.error(f"Health check failed: {e}")
-            return False
+        status = self.get_system_status()
+        return status.is_healthy()
 
+    @handle_exceptions(default_result=[], log_level="error")
     def get_critical_alerts(self) -> list:
         """Get list of critical alerts"""
-        try:
-            status = self.get_system_status()
-            return status.critical_alerts()
-        except Exception as e:
-            logger.error(f"Failed to get alerts: {e}")
-            return []
+        status = self.get_system_status()
+        return status.critical_alerts()
 
     def show_compact_status(self, context: StatusContext = StatusContext.SYSTEM) -> None:
         """Convenience method for compact status display"""

@@ -9,6 +9,7 @@ import time
 from typing import List
 
 from tools.logger import get_logger
+from tools.utils import handle_exceptions
 
 logger = get_logger("storage")
 
@@ -100,6 +101,7 @@ class AtomicFileWriter:
 
     @staticmethod
     @_retry_on_windows_lock(max_retries=3, base_delay=0.1)
+    @handle_exceptions(default_result=None, log_level="error", reraise=True)
     def write_atomic(filepath: str, content: str) -> None:
         """Write content to file atomically using temp file + rename with Windows-safe retry"""
         directory = os.path.dirname(filepath)
@@ -138,6 +140,7 @@ class AtomicFileWriter:
             raise
 
     @staticmethod
+    @handle_exceptions(default_result=None, log_level="error")
     def append_atomic(filepath: str, lines: List[str]) -> None:
         """Append lines to file atomically with fsync and resource management"""
         directory = os.path.dirname(filepath)

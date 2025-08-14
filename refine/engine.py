@@ -10,6 +10,7 @@ from typing import List, Optional
 
 from constant.search import ALLOWED_OPERATORS, POPULAR_LANGUAGES, SIZE_RANGES
 from tools.logger import get_logger
+from tools.utils import handle_exceptions
 
 from .config import RefineEngineConfig
 from .generator import QueryGenerator
@@ -281,39 +282,35 @@ class RefineEngine:
 
         return list(queries)
 
+    @handle_exceptions(default_result={"parseable": False, "error": "Analysis failed"}, log_level="warning")
     def analyze_pattern(self, pattern: str) -> dict:
         """Analyze pattern and return detailed information."""
-        try:
-            segments = self.parser.parse(pattern)
-            strategy = self.optimizer.optimize(segments)
+        segments = self.parser.parse(pattern)
+        strategy = self.optimizer.optimize(segments)
 
-            # Count segments recursively
-            def count_segments_recursive(segs, seg_type):
-                count = 0
-                for seg in segs:
-                    if isinstance(seg, seg_type):
-                        count += 1
-                    elif isinstance(seg, (GroupSegment, OptionalSegment)):
-                        count += count_segments_recursive(seg.content, seg_type)
-                return count
+        # Count segments recursively
+        def count_segments_recursive(segs, seg_type):
+            count = 0
+            for seg in segs:
+                if isinstance(seg, seg_type):
+                    count += 1
+                elif isinstance(seg, (GroupSegment, OptionalSegment)):
+                    count += count_segments_recursive(seg.content, seg_type)
+            return count
 
-            analysis = {
-                "segments": len(segments),
-                "fixed_segments": count_segments_recursive(segments, FixedSegment),
-                "variable_segments": count_segments_recursive(segments, CharClassSegment),
-                "optional_segments": count_segments_recursive(segments, OptionalSegment),
-                "group_segments": count_segments_recursive(segments, GroupSegment),
-                "enumeration_segments": len(strategy.segments),
-                "enumeration_value": strategy.value,
-                "estimated_queries": strategy.queries,
-                "parseable": True,
-            }
+        analysis = {
+            "segments": len(segments),
+            "fixed_segments": count_segments_recursive(segments, FixedSegment),
+            "variable_segments": count_segments_recursive(segments, CharClassSegment),
+            "optional_segments": count_segments_recursive(segments, OptionalSegment),
+            "group_segments": count_segments_recursive(segments, GroupSegment),
+            "enumeration_segments": len(strategy.segments),
+            "enumeration_value": strategy.value,
+            "estimated_queries": strategy.queries,
+            "parseable": True,
+        }
 
-            return analysis
-
-        except Exception as e:
-            logger.warning(f"Pattern analysis failed for '{pattern}': {e}")
-            return {"parseable": False, "error": str(e)}
+        return analysis
 
     def can_split_safely(self, query: str, recursion_depth: int = 0) -> tuple[bool, str]:
         """Check if a query can be split safely without infinite loops."""

@@ -46,6 +46,7 @@ from state.renderer import AppStyleRenderer, MainStyleRenderer, StatusRenderer
 from state.status import StatusManager
 from tools.coordinator import init_managers
 from tools.logger import flush_logs, get_logger, init_logging
+from tools.utils import handle_exceptions
 
 logger = get_logger("main")
 
@@ -465,53 +466,47 @@ class AsyncPipelineApplication:
         signal.signal(signal.SIGTERM, signal_handler)
 
 
+@handle_exceptions(default_result=False, log_level="error")
 def validate_config(config_path: str) -> bool:
     """Validate configuration file exists and is readable"""
-    try:
-        config_file = Path(config_path)
-        if not config_file.exists():
-            print(f"Error: Configuration file '{config_path}' not found.")
-            return False
-
-        if not config_file.is_file():
-            print(f"Error: '{config_path}' is not a file.")
-            return False
-
-        # Try to load the configuration
-        try:
-            load_config(config_path)
-            print(f"Configuration file '{config_path}' is valid.")
-            return True
-        except Exception as e:
-            print(f"Error: Invalid configuration file '{config_path}': {e}")
-            return False
-    except Exception as e:
-        print(f"Error validating configuration: {e}")
+    config_file = Path(config_path)
+    if not config_file.exists():
+        print(f"Error: Configuration file '{config_path}' not found.")
         return False
 
+    if not config_file.is_file():
+        print(f"Error: '{config_path}' is not a file.")
+        return False
 
-def create_sample_config(output_path: str = DEFAULT_CONFIG_FILE) -> bool:
-    """Create a sample configuration file using default configuration"""
+    # Try to load the configuration
     try:
-        # Get default configuration
-        config = get_default_config()
-
-        # Create YAML content with comments
-        content = yaml.dump(
-            config,
-            default_flow_style=False,
-            sort_keys=False,
-            indent=2,
-            allow_unicode=True,
-        )
-
-        output_file = Path(output_path)
-        output_file.write_text(content, encoding="utf-8")
-        print(f"Sample configuration created at: {output_path}")
+        load_config(config_path)
+        print(f"Configuration file '{config_path}' is valid.")
         return True
     except Exception as e:
-        print(f"Error creating sample configuration: {e}")
+        print(f"Error: Invalid configuration file '{config_path}': {e}")
         return False
+
+
+@handle_exceptions(default_result=False, log_level="error")
+def create_sample_config(output_path: str = DEFAULT_CONFIG_FILE) -> bool:
+    """Create a sample configuration file using default configuration"""
+    # Get default configuration
+    config = get_default_config()
+
+    # Create YAML content with comments
+    content = yaml.dump(
+        config,
+        default_flow_style=False,
+        sort_keys=False,
+        indent=2,
+        allow_unicode=True,
+    )
+
+    output_file = Path(output_path)
+    output_file.write_text(content, encoding="utf-8")
+    print(f"Sample configuration created at: {output_path}")
+    return True
 
 
 def setup_signal_handlers(app: "AsyncPipelineApplication") -> None:

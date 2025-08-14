@@ -30,7 +30,7 @@ from state.status import StatusManager
 from storage.recovery import TaskRecoveryStrategy
 from tools.coordinator import get_session, get_token
 from tools.logger import get_logger
-from tools.utils import get_service_name
+from tools.utils import get_service_name, handle_exceptions
 
 from .base import LifecycleManager
 from .pipeline import Pipeline
@@ -56,6 +56,7 @@ class CompletionEventManager:
         with self._lock:
             self._listeners.discard(callback)
 
+    @handle_exceptions(default_result=None, log_level="error")
     def notify_completion(self) -> None:
         """Notify all listeners of completion"""
         with self._lock:

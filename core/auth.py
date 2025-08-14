@@ -55,7 +55,7 @@ class AuthService:
             token_provider: Function to get GitHub API token
             user_agent_provider: Function to get User-Agent string
         """
-        instance = cls.get_instance()
+        _ = cls.get_instance()
         cls._session_provider = session_provider
         cls._token_provider = token_provider
         cls._user_agent_provider = user_agent_provider

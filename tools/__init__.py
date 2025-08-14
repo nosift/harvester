@@ -55,6 +55,9 @@ from .retry import (
     with_retry,
 )
 
+# Utility functions
+from .utils import handle_exceptions, isblank, trim
+
 __all__ = [
     # Resource management components
     "Agents",
@@ -98,4 +101,8 @@ __all__ = [
     "retry_on_exception",
     "network_retry",
     "smart_retry",
+    # Utility functions
+    "handle_exceptions",
+    "isblank",
+    "trim",
 ]

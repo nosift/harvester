@@ -17,7 +17,7 @@ from constant.system import DEFAULT_COMPLETION_PATH, DEFAULT_MODEL_PATH
 from core.enums import ErrorReason
 from core.models import CheckResult, Condition
 from tools.coordinator import get_user_agent
-from tools.utils import trim
+from tools.utils import handle_exceptions, trim
 
 from ..client import http_get
 from .base import BaseProvider
@@ -106,6 +106,7 @@ class OpenAILikeProvider(BaseProvider):
 
         return super()._judge(code, message)
 
+    @handle_exceptions(default_result=[], log_level="warning")
     def _fetch_models(self, url: str, headers: Dict) -> List[str]:
         """Fetch models from API endpoint."""
         url = trim(url)
@@ -116,11 +117,8 @@ class OpenAILikeProvider(BaseProvider):
         if not content:
             return []
 
-        try:
-            result = json.loads(content)
-            return [trim(x.get("id", "")) for x in result.get("data", [])]
-        except:
-            return []
+        result = json.loads(content)
+        return [trim(x.get("id", "")) for x in result.get("data", [])]
 
     def list_models(self, token: str, address: str = "", endpoint: str = "") -> List[str]:
         """List available models from OpenAI-like API."""

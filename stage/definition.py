@@ -25,7 +25,7 @@ from core.tasks import AcquisitionTask, CheckTask, InspectTask, ProviderTask, Se
 from refine.engine import RefineEngine
 from search import client
 from tools.logger import get_logger
-from tools.utils import get_service_name
+from tools.utils import get_service_name, handle_exceptions
 
 from .base import BasePipelineStage, OutputHandler, StageOutput, StageResources
 from .factory import TaskFactory
@@ -253,6 +253,7 @@ class SearchStage(BasePipelineStage):
 
         return page_tasks
 
+    @handle_exceptions(default_result=[], log_level="error")
     def _extract_keys_from_content(self, content: str, task: SearchTask) -> List[Service]:
         """Extract keys directly from search content"""
         services = client.collect(

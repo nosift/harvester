@@ -38,6 +38,7 @@ from tools.coordinator import get_user_agent
 from tools.ratelimit import RateLimiter
 from tools.resources import ResourcePool, managed_network
 from tools.retry import network_retry
+from tools.utils import handle_exceptions
 
 
 class GitHubClient:
@@ -535,6 +536,7 @@ def search_with_count(
         return search_web_with_count(keywords, session, page, callback)
 
 
+@handle_exceptions(default_result=0, log_level="error")
 def get_total_num(query: str, token: str) -> int:
     """Get total number of results from GitHub API."""
     if isblank(token) or isblank(query):
@@ -549,12 +551,8 @@ def get_total_num(query: str, token: str) -> int:
 
     client = get_github_client()
     content = client.get(url=url, headers=headers, interval=1)
-    try:
-        data = json.loads(content)
-        return data.get("total_count", 0)
-    except:
-        logger.error(f"[GithubCrawl] Failed to get total number of items with query: {query}")
-        return 0
+    data = json.loads(content)
+    return data.get("total_count", 0)
 
 
 def estimate_web_total(query: str, session: str, content: Optional[str] = None) -> int:
@@ -702,6 +700,7 @@ def search_code(
         return [], ""
 
 
+@handle_exceptions(default_result=[], log_level="error")
 def collect(
     key_pattern: str,
     url: str = "",
@@ -762,6 +761,7 @@ def collect(
     return candidates
 
 
+@handle_exceptions(default_result=[], log_level="error")
 def extract(text: str, regex: str) -> List[str]:
     """Extract strings from text using regex pattern."""
     content, pattern = trim(text), trim(regex)
@@ -769,23 +769,20 @@ def extract(text: str, regex: str) -> List[str]:
         return []
 
     items: set[str] = set()
-    try:
-        groups = re.findall(pattern, content)
-        for x in groups:
-            words: List[str] = []
-            if isinstance(x, str):
-                words.append(x)
-            elif isinstance(x, (tuple, list)):
-                words.extend(list(x))
-            else:
-                logger.error(f"Unknown type: {type(x)}, value: {x}. Please optimize your regex")
-                continue
+    groups = re.findall(pattern, content)
+    for x in groups:
+        words: List[str] = []
+        if isinstance(x, str):
+            words.append(x)
+        elif isinstance(x, (tuple, list)):
+            words.extend(list(x))
+        else:
+            logger.error(f"Unknown type: {type(x)}, value: {x}. Please optimize your regex")
+            continue
 
-            for word in words:
-                key = trim(word)
-                if key:
-                    items.add(key)
-    except Exception:
-        logger.error(traceback.format_exc())
+        for word in words:
+            key = trim(word)
+            if key:
+                items.add(key)
 
     return list(items)
