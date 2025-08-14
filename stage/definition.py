@@ -31,7 +31,6 @@ from .base import BasePipelineStage, OutputHandler, StageOutput, StageResources
 from .factory import TaskFactory
 from .registry import register_stage
 
-# Global stage logger
 logger = get_logger("stage")
 
 
@@ -190,7 +189,7 @@ class SearchStage(BasePipelineStage):
             if wait_time > 0:
                 time.sleep(wait_time)
                 if not self.resources.limiter.acquire(service_type):
-                    logger.warning(f'[{self.name}] rate limit exceeded for Github {"Rest API" if use_api else "Web"}')
+                    logger.info(f'[{self.name}] rate limit exceeded for Github {"Rest API" if use_api else "Web"}')
                     return False
         return True
 
@@ -385,7 +384,7 @@ class CheckStage(BasePipelineStage):
                 if wait_time > 0:
                     time.sleep(wait_time)
                     if not self.resources.limiter.acquire(service_type):
-                        logger.warning(f"[{self.name}] rate limit exceeded for provider: {task.provider}")
+                        logger.info(f"[{self.name}] rate limit exceeded for provider: {task.provider}")
                         return None
 
             # Execute check

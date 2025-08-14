@@ -191,6 +191,10 @@ class WorkerManager(ConditionalTaskManager):
         self.pending_recommendations: Dict[str, Tuple[int, int]] = {}  # stage -> (current, target)
         self.last_batch_log_time: float = 0.0
 
+        # Cache for last known stats (used when lock timeout occurs)
+        self.last_known_stats: Optional[WorkerStats] = None
+        self.last_stats_update_time: float = 0.0
+
         logger.info("Initialized worker manager")
 
     def register_stage(self, stage_name: str, stage_instance: Union[WorkerManagedStage, Any]):
@@ -434,15 +438,31 @@ class WorkerManager(ConditionalTaskManager):
                 finally:
                     self.lock.release()
             else:
-                # Return basic stats if we can't get the lock quickly
-                return WorkerStats(
-                    timestamp=time.time(),
-                    stages={},
-                    total_workers=0,
-                    total_target_workers=0,
-                    total_queue_size=0,
-                    status="lock_timeout",
-                )
+                # Return last known stats if available, otherwise basic stats
+                current_time = time.time()
+                if (
+                    self.last_known_stats is not None and current_time - self.last_stats_update_time < 30.0
+                ):  # Use cache if < 30s old
+                    # Return cached stats with updated timestamp and status
+                    cached_stats = self.last_known_stats
+                    return WorkerStats(
+                        timestamp=current_time,
+                        stages=cached_stats.stages,
+                        total_workers=cached_stats.total_workers,
+                        total_target_workers=cached_stats.total_target_workers,
+                        total_queue_size=cached_stats.total_queue_size,
+                        status="lock_timeout_cached",
+                    )
+                else:
+                    # Return basic stats if no recent cache available
+                    return WorkerStats(
+                        timestamp=current_time,
+                        stages={},
+                        total_workers=0,
+                        total_target_workers=0,
+                        total_queue_size=0,
+                        status="lock_timeout_no_cache",
+                    )
 
             # Process the copied data outside the lock
             stages = {}
@@ -464,13 +484,21 @@ class WorkerManager(ConditionalTaskManager):
                 total_target_workers += metrics.target_workers
                 total_queue_size += metrics.queue_size
 
-            return WorkerStats(
-                timestamp=time.time(),
+            # Create the stats object
+            current_time = time.time()
+            stats = WorkerStats(
+                timestamp=current_time,
                 stages=stages,
                 total_workers=total_workers,
                 total_target_workers=total_target_workers,
                 total_queue_size=total_queue_size,
             )
+
+            # Update cache for future lock timeout scenarios
+            self.last_known_stats = stats
+            self.last_stats_update_time = current_time
+
+            return stats
         except Exception as e:
             # Return error stats instead of raising
             return WorkerStats(

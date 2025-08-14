@@ -85,6 +85,9 @@ class AlertManager:
         self.alert_ttl_index: OrderedDict[str, float] = OrderedDict()
         self.lock = threading.Lock()
 
+        # Track last cleanup time for periodic maintenance
+        self.last_cleanup_time = time.time()
+
         # Alert thresholds with fallback to constants
         self.error_threshold = getattr(config, "error_threshold", MONITORING_THRESHOLDS["error_rate"])
         self.queue_threshold = getattr(config, "queue_threshold", MONITORING_THRESHOLDS["queue_size"])
@@ -164,6 +167,20 @@ class AlertManager:
         ]
         for key in expired_keys:
             del self.alert_ttl_index[key]
+
+    def periodic_cleanup(self) -> None:
+        """Perform periodic cleanup of expired alerts (called from monitoring loop)"""
+        current_time = time.time()
+
+        # Only cleanup every 5 minutes to avoid overhead
+        if current_time - self.last_cleanup_time >= 300:  # 5 minutes
+            with self.lock:
+                self._cleanup_expired_alerts(current_time)
+                self.last_cleanup_time = current_time
+
+                # Log cleanup stats if we cleaned anything
+                if len(self.alert_ttl_index) > 0:
+                    logger.debug(f"Alert TTL cleanup: {len(self.alert_ttl_index)} active alert keys remaining")
 
 
 class MultiProviderMonitoring(PeriodicTaskManager):
@@ -286,6 +303,9 @@ class MultiProviderMonitoring(PeriodicTaskManager):
 
         # Check for alerts
         self.alert_manager.check_alerts(self.provider_stats, self.pipeline_stats)
+
+        # Perform periodic cleanup of alert TTL index
+        self.alert_manager.periodic_cleanup()
 
     def _console_alert_handler(self, alert: Alert) -> None:
         """Default console alert handler"""

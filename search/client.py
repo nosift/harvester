@@ -112,7 +112,7 @@ class GitHubClient:
         """Handle GitHub-specific errors"""
         if status == 403 and service == SERVICE_TYPE_GITHUB_API:
             if "rate limit" in message.lower():
-                logger.warning("GitHub API rate limit exceeded, backing off")
+                logger.info("GitHub API rate limit exceeded, backing off")
                 time.sleep(GITHUB_API_RATE_LIMIT_BACKOFF)  # Wait for rate limit reset
 
     def get(
@@ -129,7 +129,7 @@ class GitHubClient:
 
         # Apply rate limiting
         if service and not self._limit(service):
-            logger.warning(f"Rate limit acquisition failed for {service}")
+            logger.debug(f"Rate limit acquisition failed for {service}")
             return ""
 
         # Make request using original http_get

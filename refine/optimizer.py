@@ -4,9 +4,10 @@
 Enumeration strategy optimizer for regex patterns.
 """
 
+import heapq
 import itertools
 import math
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 from tools.logger import get_logger
 
@@ -349,23 +350,73 @@ class EnumerationOptimizer(IEnumerationOptimizer):
         if len(variants) <= 1000:
             return variants
 
-        # Score each variant based on fixed prefix length and complexity
-        scored_variants = []
-        for variant in variants:
-            score = self._calculate_variant_score(variant)
-            scored_variants.append((score, variant))
-
-        # Sort by score (descending) and take top variants
-        scored_variants.sort(key=lambda x: x[0], reverse=True)
-
-        # Take top 80% of reasonable size, but ensure we don't lose valuable variants
+        # Calculate target size
         target_size = min(1000, max(100, len(variants) // 2))
-        optimized = [variant for _, variant in scored_variants[:target_size]]
 
-        logger.info(f"Selected {len(optimized)} highest-value variants from {len(variants)}")
-        return optimized
+        # Use heapq.nlargest for better performance on large datasets
+        # Cache segment scores to avoid recalculation
+        segment_score_cache: Dict[str, float] = {}
 
-    def _calculate_variant_score(self, variant: List[Segment]) -> float:
+        def score_variant(variant: List[Segment]) -> float:
+            return self._score_variant_cached(variant, segment_score_cache)
+
+        # Get top variants without full sorting
+        top_scored = heapq.nlargest(target_size, variants, key=score_variant)
+
+        logger.info(f"Selected {len(top_scored)} highest-value variants from {len(variants)} using optimized selection")
+        return top_scored
+
+    def _score_variant_cached(self, variant: List[Segment], cache: Dict[str, float]) -> float:
+        """Calculate variant score with segment-level caching for better performance"""
+        total_score = 0.0
+
+        for segment in variant:
+            # Create cache key based on segment type and content
+            cache_key = self._get_segment_cache_key(segment)
+
+            if cache_key in cache:
+                segment_score = cache[cache_key]
+            else:
+                segment_score = self._score_segment(segment)
+                cache[cache_key] = segment_score
+
+            total_score += segment_score
+
+        return total_score
+
+    def _get_segment_cache_key(self, segment: Segment) -> str:
+        """Generate cache key for segment scoring"""
+        if hasattr(segment, "content"):
+            return f"{type(segment).__name__}:{segment.content}"
+        elif hasattr(segment, "pattern"):
+            return f"{type(segment).__name__}:{segment.pattern}"
+        elif hasattr(segment, "value"):
+            return f"{type(segment).__name__}:{segment.value}"
+        else:
+            return f"{type(segment).__name__}:{str(segment)}"
+
+    def _score_segment(self, segment: Segment) -> float:
+        """Calculate score for individual segment"""
+        # Prefer fixed segments (higher score)
+        if isinstance(segment, FixedSegment):
+            return len(segment.content) * 2.0  # Fixed content is valuable
+
+        # Character classes get medium score
+        if isinstance(segment, CharClassSegment):
+            return 1.0
+
+        # Optional segments get lower score
+        if isinstance(segment, OptionalSegment):
+            return 0.5
+
+        # Group segments get variable score based on content
+        if isinstance(segment, GroupSegment):
+            return 1.5
+
+        # Default score
+        return 1.0
+
+    def _score_variant(self, variant: List[Segment]) -> float:
         """Calculate score for a variant based on its enumeration potential."""
         score = 0.0
 
