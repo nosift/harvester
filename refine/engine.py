@@ -20,22 +20,22 @@ from .splittability import SplittabilityAnalyzer
 
 logger = get_logger("refine")
 
+_instance: Optional["RefineEngine"] = None
+_lock = threading.Lock()
+
 
 class RefineEngine:
-    """Main interface for regex pattern processing - Singleton pattern."""
-
-    _instance = None
-    _lock = threading.Lock()
+    """Main interface for regex pattern processing."""
 
     def __init__(self, config: Optional[RefineEngineConfig] = None):
         if config is None:
             config = RefineEngineConfig()
 
         self.config = config
-        self.parser = RegexParser.get_instance(config.max_quantifier_length)
-        self.optimizer = EnumerationOptimizer.get_instance(config.max_queries)
-        self.generator = QueryGenerator.get_instance(config.max_depth)
-        self.splittability = SplittabilityAnalyzer.get_instance(
+        self.parser = RegexParser(config.max_quantifier_length)
+        self.optimizer = EnumerationOptimizer(config.max_queries)
+        self.generator = QueryGenerator(config.max_depth)
+        self.splittability = SplittabilityAnalyzer(
             enable_recursion_limit=config.enable_recursion_limit,
             enable_value_threshold=config.enable_value_threshold,
             enable_resource_limit=config.enable_resource_limit,
@@ -46,14 +46,24 @@ class RefineEngine:
 
     @classmethod
     def get_instance(cls, config: Optional[RefineEngineConfig] = None) -> "RefineEngine":
-        """Get singleton instance with optional configuration."""
-        if cls._instance is None:
-            with cls._lock:
-                if cls._instance is None:
-                    cls._instance = cls.__new__(cls)
-                    cls._instance.__init__(config)
-                    logger.debug("RefineEngine singleton instance initialized")
-        return cls._instance
+        """Get thread-safe singleton instance."""
+        global _instance
+        if _instance is None:
+            with _lock:
+                if _instance is None:
+                    _instance = cls(config)
+                    logger.debug("RefineEngine singleton instance created")
+        elif config is not None:
+            logger.warning("RefineEngine already initialized, config parameter ignored")
+        return _instance
+
+    @classmethod
+    def reset_instance(cls) -> None:
+        """Reset singleton instance (mainly for testing)."""
+        global _instance
+        with _lock:
+            _instance = None
+            logger.debug("RefineEngine singleton instance reset")
 
     def _extract_regex_pattern(self, query: str) -> Optional[str]:
         """
@@ -290,9 +300,7 @@ class RefineEngine:
             logger.warning(f"Pattern analysis failed for '{pattern}': {e}")
             return {"parseable": False, "error": str(e)}
 
-    def can_split_safely(
-        self, query: str, recursion_depth: int = 0, parent_pattern: Optional[str] = None
-    ) -> tuple[bool, str]:
+    def can_split_safely(self, query: str, recursion_depth: int = 0) -> tuple[bool, str]:
         """Check if a query can be split safely without infinite loops."""
         # Extract pattern from GitHub search format
         match = re.search(r"/([^/]+)/", query)
@@ -303,18 +311,10 @@ class RefineEngine:
 
         try:
             segments = self.parser.parse(pattern)
-            return self.splittability.can_split_further(pattern, segments, recursion_depth, parent_pattern)
+            return self.splittability.can_split_further(pattern, segments, recursion_depth)
         except Exception as e:
             logger.warning(f"Splittability check failed for '{pattern}': {e}")
             return False, f"Analysis failed: {str(e)}"
-
-    def reset_split_history(self):
-        """Reset the split history for a new analysis session."""
-        self.splittability.reset_history()
-
-    def get_split_analysis_summary(self) -> dict:
-        """Get a summary of the current split analysis state."""
-        return self.splittability.get_analysis_summary()
 
     def clean_regex(self, query: str, separator: str = "AND") -> str:
         """

@@ -6,7 +6,6 @@ Enumeration strategy optimizer for regex patterns.
 
 import itertools
 import math
-import threading
 from typing import List, Tuple
 
 from tools.logger import get_logger
@@ -24,24 +23,10 @@ logger = get_logger("refine")
 
 
 class EnumerationOptimizer:
-    """Optimize enumeration strategy for regex patterns - Singleton pattern."""
-
-    _instance = None
-    _lock = threading.Lock()
+    """Optimize enumeration strategy for regex patterns."""
 
     def __init__(self, max_queries: int = 100000000):
         self.max_queries = max_queries
-
-    @classmethod
-    def get_instance(cls, max_queries: int = 100000000) -> "EnumerationOptimizer":
-        """Get singleton instance with optional configuration."""
-        if cls._instance is None:
-            with cls._lock:
-                if cls._instance is None:
-                    cls._instance = cls.__new__(cls)
-                    cls._instance.__init__(max_queries)
-                    logger.debug("EnumerationOptimizer singleton instance initialized")
-        return cls._instance
 
     def optimize(self, segments: List[Segment]) -> EnumerationStrategy:
         """Find optimal enumeration strategy."""

@@ -6,7 +6,6 @@ Query generator for enumerated regex patterns.
 
 import itertools
 import math
-import threading
 from typing import List, Set
 
 from tools.logger import get_logger
@@ -24,24 +23,10 @@ logger = get_logger("refine")
 
 
 class QueryGenerator:
-    """Generate queries from enumeration strategy - Singleton pattern."""
-
-    _instance = None
-    _lock = threading.Lock()
+    """Generate queries from enumeration strategy."""
 
     def __init__(self, max_depth: int = 3):
         self.max_depth = max_depth
-
-    @classmethod
-    def get_instance(cls, max_depth: int = 3) -> "QueryGenerator":
-        """Get singleton instance with optional configuration."""
-        if cls._instance is None:
-            with cls._lock:
-                if cls._instance is None:
-                    cls._instance = cls.__new__(cls)
-                    cls._instance.__init__(max_depth)
-                    logger.debug("QueryGenerator singleton instance initialized")
-        return cls._instance
 
     def generate(self, segments: List[Segment], strategy: EnumerationStrategy, partitions: int = -1) -> List[str]:
         """Generate queries from enumeration strategy."""

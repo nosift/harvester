@@ -4,7 +4,6 @@
 Regex pattern parser with support for complex patterns.
 """
 
-import threading
 from typing import List, Optional, Set, Tuple, Union
 
 from tools.logger import get_logger
@@ -21,41 +20,24 @@ logger = get_logger("refine")
 
 
 class RegexParser:
-    """Parse regex patterns into segment sequences - Singleton pattern."""
-
-    _instance = None
-    _lock = threading.Lock()
+    """Parse regex patterns into segment sequences."""
 
     def __init__(self, max_quantifier_length: int = 150):
         self.max_quantifier_length = max_quantifier_length
-        self.pattern = ""
-        self.pos = 0
-        self.length = 0
-
-    @classmethod
-    def get_instance(cls, max_quantifier_length: int = 150) -> "RegexParser":
-        """Get singleton instance with optional configuration."""
-        if cls._instance is None:
-            with cls._lock:
-                if cls._instance is None:
-                    cls._instance = cls.__new__(cls)
-                    cls._instance.__init__(max_quantifier_length)
-                    logger.debug("RegexParser singleton instance initialized")
-        return cls._instance
 
     def parse(self, pattern: str) -> List[Segment]:
         """Parse regex pattern into segments."""
         if not pattern:
             return []
 
-        self.pattern = pattern
-        self.pos = 0
-        self.length = len(pattern)
+        # Use local variables for thread safety
+        pos = 0
+        length = len(pattern)
         segments = []
 
         try:
-            while self.pos < self.length:
-                segment = self._parse_next()
+            while pos < length:
+                segment, pos = self._parse_next(pattern, pos, length)
                 if segment:
                     segment.position = len(segments)
                     segments.append(segment)
@@ -69,76 +51,76 @@ class RegexParser:
             logger.warning(f"Failed to parse pattern '{pattern}': {e}")
             return []
 
-    def _parse_next(self) -> Optional[Segment]:
+    def _parse_next(self, pattern: str, pos: int, length: int) -> Tuple[Optional[Segment], int]:
         """Parse next segment from current position."""
-        if self.pos >= self.length:
-            return None
+        if pos >= length:
+            return None, pos
 
-        char = self.pattern[self.pos]
+        char = pattern[pos]
 
         if char == "(":
-            return self._parse_group()
+            return self._parse_group(pattern, pos, length)
         elif char == "[":
-            return self._parse_charclass()
+            return self._parse_charclass(pattern, pos, length)
         elif char in r".*+?{}^$|\\":
-            return self._parse_special()
+            return self._parse_special(pattern, pos, length)
         else:
-            return self._parse_fixed()
+            return self._parse_fixed(pattern, pos, length)
 
-    def _parse_group(self) -> Optional[Segment]:
+    def _parse_group(self, pattern: str, pos: int, length: int) -> Tuple[Optional[Segment], int]:
         """Parse group patterns (...) or (?:...) or (?-i) etc."""
-        start_pos = self.pos
-        self.pos += 1  # Skip '('
+        start_pos = pos
+        pos += 1  # Skip '('
 
-        if self.pos >= self.length:
-            return None
+        if pos >= length:
+            return None, pos
 
         # Check for special group prefixes like ?:, ?-i, etc.
         non_capturing = False
         original_prefix = ""
 
-        if self.pos < self.length and self.pattern[self.pos] == "?":
+        if pos < length and pattern[pos] == "?":
             # Parse special group syntax
-            prefix_start = self.pos
-            self.pos += 1  # Skip '?'
+            prefix_start = pos
+            pos += 1  # Skip '?'
 
-            if self.pos < self.length:
-                if self.pattern[self.pos] == ":":
+            if pos < length:
+                if pattern[pos] == ":":
                     # Non-capturing group (?:...)
                     non_capturing = True
                     original_prefix = "?:"
-                    self.pos += 1
-                elif self.pattern[self.pos] == "-" and self.pos + 1 < self.length and self.pattern[self.pos + 1] == "i":
+                    pos += 1
+                elif pos + 1 < length and pattern[pos] == "-" and pattern[pos + 1] == "i":
                     # Case sensitive flag (?-i)
                     original_prefix = "?-i"
-                    self.pos += 2
+                    pos += 2
                     non_capturing = True
                 else:
                     # Other special syntax - preserve as-is
-                    while self.pos < self.length and self.pattern[self.pos] not in "):":
-                        self.pos += 1
-                    original_prefix = self.pattern[prefix_start : self.pos]
-                    if self.pos < self.length and self.pattern[self.pos] == ":":
-                        self.pos += 1
+                    while pos < length and pattern[pos] not in "):":
+                        pos += 1
+                    original_prefix = pattern[prefix_start:pos]
+                    if pos < length and pattern[pos] == ":":
+                        pos += 1
                         non_capturing = True
 
         # Find matching closing parenthesis
         paren_count = 1
-        group_start = self.pos
+        group_start = pos
 
-        while self.pos < self.length and paren_count > 0:
-            if self.pattern[self.pos] == "(":
+        while pos < length and paren_count > 0:
+            if pattern[pos] == "(":
                 paren_count += 1
-            elif self.pattern[self.pos] == ")":
+            elif pattern[pos] == ")":
                 paren_count -= 1
-            self.pos += 1
+            pos += 1
 
         if paren_count > 0:
             logger.warning("Unmatched parentheses in pattern")
-            return None
+            return None, pos
 
         # Parse group content - preserve original for complex structures
-        group_pattern = self.pattern[group_start : self.pos - 1]
+        group_pattern = pattern[group_start : pos - 1]
 
         # For choice patterns like (sid01|api03), treat as single fixed content
         if "|" in group_pattern and not any(char in group_pattern for char in "[]{}*+?()"):
@@ -148,18 +130,18 @@ class RegexParser:
             choice_segment.content = group_pattern
             group_content = [choice_segment]
         else:
-            # Parse normally for other patterns
-            sub_parser = RegexParser()
+            # Parse normally for other patterns - use same config
+            sub_parser = RegexParser(self.max_quantifier_length)
             group_content = sub_parser.parse(group_pattern)
 
         # Check for quantifier
-        quantifier = self._parse_quantifier()
+        quantifier, pos = self._parse_quantifier(pattern, pos, length)
 
         if quantifier == "?":
             segment = OptionalSegment()
             segment.position = start_pos
             segment.content = group_content
-            return segment
+            return segment, pos
         else:
             segment = GroupSegment()
             segment.position = start_pos
@@ -171,39 +153,39 @@ class RegexParser:
             # Store quantifier to preserve group repetition like {3}
             if quantifier:
                 segment.quantifier = quantifier
-            return segment
+            return segment, pos
 
-    def _parse_charclass(self) -> Optional[CharClassSegment]:
+    def _parse_charclass(self, pattern: str, pos: int, length: int) -> Tuple[Optional[CharClassSegment], int]:
         """Parse character class [...]"""
-        start_pos = self.pos
-        self.pos += 1  # Skip '['
+        start_pos = pos
+        pos += 1  # Skip '['
 
-        if self.pos >= self.length:
-            return None
+        if pos >= length:
+            return None, pos
 
         # Find closing bracket
         class_content = ""
-        while self.pos < self.length and self.pattern[self.pos] != "]":
-            class_content += self.pattern[self.pos]
-            self.pos += 1
+        while pos < length and pattern[pos] != "]":
+            class_content += pattern[pos]
+            pos += 1
 
-        if self.pos >= self.length:
+        if pos >= length:
             logger.warning("Unclosed character class")
-            return None
+            return None, pos
 
-        self.pos += 1  # Skip ']'
+        pos += 1  # Skip ']'
 
         # Parse character set
         charset = self._parse_charset(class_content)
         if not charset:
-            return None
+            return None, pos
 
         # Parse quantifier
-        quantifier = self._parse_quantifier()
+        quantifier, pos = self._parse_quantifier(pattern, pos, length)
         min_len, max_len = self._quantifier_to_range(quantifier)
 
         # Detect case sensitivity from pattern
-        case_sensitive = self._detect_case_sensitivity()
+        case_sensitive = self._detect_case_sensitivity(pattern)
 
         segment = CharClassSegment()
         segment.position = start_pos
@@ -213,7 +195,7 @@ class RegexParser:
         segment.original_quantifier = quantifier
         segment.original_charset_str = f"[{class_content}]"  # Store original with escapes
         segment.case_sensitive = case_sensitive
-        return segment
+        return segment, pos
 
     def _parse_charset(self, content: str) -> Set[str]:
         """Parse character class content into character set."""
@@ -267,25 +249,25 @@ class RegexParser:
         escape_map = {"n": "\n", "t": "\t", "r": "\r", "f": "\f", "v": "\v", "\\": "\\", "-": "-", "]": "]", "[": "["}
         return escape_map.get(char, char)
 
-    def _parse_quantifier(self) -> str:
+    def _parse_quantifier(self, pattern: str, pos: int, length: int) -> Tuple[str, int]:
         """Parse quantifier {n,m}, +, *, ?"""
-        if self.pos >= self.length:
-            return ""
+        if pos >= length:
+            return "", pos
 
-        char = self.pattern[self.pos]
+        char = pattern[pos]
 
         if char == "{":
-            start = self.pos
-            while self.pos < self.length and self.pattern[self.pos] != "}":
-                self.pos += 1
-            if self.pos < self.length:
-                self.pos += 1  # Skip '}'
-                return self.pattern[start : self.pos]
+            start = pos
+            while pos < length and pattern[pos] != "}":
+                pos += 1
+            if pos < length:
+                pos += 1  # Skip '}'
+                return pattern[start:pos], pos
         elif char in "+*?":
-            self.pos += 1
-            return char
+            pos += 1
+            return char, pos
 
-        return ""
+        return "", pos
 
     def _quantifier_to_range(self, quantifier: str) -> Tuple[int, Union[int, float]]:
         """Convert quantifier to length range."""
@@ -314,80 +296,80 @@ class RegexParser:
         else:
             return (1, 1)
 
-    def _parse_special(self) -> Optional[Segment]:
+    def _parse_special(self, pattern: str, pos: int, length: int) -> Tuple[Optional[Segment], int]:
         """Parse special characters and escape sequences preserving original format."""
-        char = self.pattern[self.pos]
+        char = pattern[pos]
 
-        if char == "\\" and self.pos + 1 < self.length:
-            next_char = self.pattern[self.pos + 1]
+        if char == "\\" and pos + 1 < length:
+            next_char = pattern[pos + 1]
 
             # Handle \w and \d as character classes
             if next_char == "w":
-                self.pos += 2
+                pos += 2
                 # Parse quantifier
-                quantifier = self._parse_quantifier()
+                quantifier, pos = self._parse_quantifier(pattern, pos, length)
                 min_len, max_len = self._quantifier_to_range(quantifier)
 
                 # Create character class for \w
                 segment = CharClassSegment()
-                segment.position = self.pos - 2
+                segment.position = pos - 2
                 segment.charset = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_")
                 segment.min_length = min_len
                 segment.max_length = max_len
                 segment.original_quantifier = quantifier
                 segment.original_charset_str = "[a-zA-Z0-9_]"
-                segment.case_sensitive = self._detect_case_sensitivity()
-                return segment
+                segment.case_sensitive = self._detect_case_sensitivity(pattern)
+                return segment, pos
 
             elif next_char == "d":
-                self.pos += 2
+                pos += 2
                 # Parse quantifier
-                quantifier = self._parse_quantifier()
+                quantifier, pos = self._parse_quantifier(pattern, pos, length)
                 min_len, max_len = self._quantifier_to_range(quantifier)
 
                 # Create character class for \d
                 segment = CharClassSegment()
-                segment.position = self.pos - 2
+                segment.position = pos - 2
                 segment.charset = set("0123456789")
                 segment.min_length = min_len
                 segment.max_length = max_len
                 segment.original_quantifier = quantifier
                 segment.original_charset_str = "[0-9]"
-                segment.case_sensitive = self._detect_case_sensitivity()
-                return segment
+                segment.case_sensitive = self._detect_case_sensitivity(pattern)
+                return segment, pos
             else:
                 # Handle other escape sequences - preserve original escape
-                original_escape = self.pattern[self.pos : self.pos + 2]
-                self.pos += 2
+                original_escape = pattern[pos : pos + 2]
+                pos += 2
                 segment = FixedSegment()
-                segment.position = self.pos - 2
+                segment.position = pos - 2
                 segment.content = original_escape  # Preserve original escape like \/
-                return segment
+                return segment, pos
         else:
             # Handle other special characters as fixed content
-            self.pos += 1
+            pos += 1
             segment = FixedSegment()
-            segment.position = self.pos - 1
+            segment.position = pos - 1
             segment.content = char
-            return segment
+            return segment, pos
 
-    def _parse_fixed(self) -> FixedSegment:
+    def _parse_fixed(self, pattern: str, pos: int, length: int) -> Tuple[FixedSegment, int]:
         """Parse fixed string segment preserving escape sequences."""
-        start_pos = self.pos
+        start_pos = pos
         content = ""
 
-        while self.pos < self.length and self.pattern[self.pos] not in r"()[].*+?{}^$|\\":
-            content += self.pattern[self.pos]
-            self.pos += 1
+        while pos < length and pattern[pos] not in r"()[].*+?{}^$|\\":
+            content += pattern[pos]
+            pos += 1
 
         segment = FixedSegment()
         segment.position = start_pos
         segment.content = content
-        return segment
+        return segment, pos
 
-    def _detect_case_sensitivity(self) -> bool:
+    def _detect_case_sensitivity(self, pattern: str) -> bool:
         """Detect if pattern has (?-i) case sensitive flag."""
-        return "(?-i)" in self.pattern
+        return "(?-i)" in pattern
 
     def _calculate_prefix_lengths(self, segments: List[Segment]) -> None:
         """Calculate fixed prefix length for each segment."""
