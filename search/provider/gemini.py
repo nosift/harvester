@@ -64,7 +64,7 @@ class GeminiProvider(BaseProvider):
         code, message = chat(url=url, headers=self._get_headers(token=token), params=params)
         return self._judge(code=code, message=message)
 
-    def list_models(self, token: str, address: str = "", endpoint: str = "") -> List[str]:
+    def inspect(self, token: str, address: str = "", endpoint: str = "") -> List[str]:
         """List available Gemini models."""
         token = trim(token)
         if not token:

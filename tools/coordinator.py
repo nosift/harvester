@@ -19,7 +19,7 @@ from typing import Optional
 
 from config import get_config
 from config.schemas import Config
-from core.types import ResourceProvider
+from core.types import IResourceProvider
 
 from .agent import Agents
 from .credential import Credentials
@@ -28,7 +28,7 @@ from .logger import get_logger
 logger = get_logger("manager")
 
 
-class ResourceManager(ResourceProvider):
+class ResourceManager(IResourceProvider):
     """Thread-safe resource manager using singleton pattern"""
 
     _instance: Optional["ResourceManager"] = None

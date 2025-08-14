@@ -52,12 +52,10 @@ from .tasks import (  # Task types; Result types; Task types; Result types
 
 # Core types and interfaces
 from .types import (  # Abstract interfaces; Type definitions; Data structures
-    AuthProvider,
-    PipelineBase,
-    Provider,
-    RateLimiterInterface,
-    ResourceProvider,
-    TaskManagerInterface,
+    IAuthProvider,
+    IPipelineBase,
+    IProvider,
+    IResourceProvider,
 )
 
 # Export all public interfaces
@@ -86,12 +84,10 @@ __all__ = [
     "ResourceUsage",
     "HealthStatus",
     # Types
-    "AuthProvider",
-    "PipelineBase",
-    "Provider",
-    "RateLimiterInterface",
-    "ResourceProvider",
-    "TaskManagerInterface",
+    "IAuthProvider",
+    "IPipelineBase",
+    "IProvider",
+    "IResourceProvider",
     # Core tasks
     "ProviderTask",
     "SearchTask",

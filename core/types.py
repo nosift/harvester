@@ -9,7 +9,7 @@ used throughout the application for type safety and clear contracts.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, List, Optional, Protocol
+from typing import TYPE_CHECKING, List, Optional, Protocol
 
 from .models import Condition
 
@@ -33,39 +33,7 @@ class CheckResult:
         return self.valid and not self.error_code
 
 
-class ProviderInterface(Protocol):
-    """Protocol for AI service providers with typed method signatures"""
-
-    @property
-    def name(self) -> str:
-        """Provider name identifier"""
-        ...
-
-    @property
-    def base_url(self) -> str:
-        """Base URL for the provider's API"""
-        ...
-
-    @property
-    def default_model(self) -> str:
-        """Default model for this provider"""
-        ...
-
-    @property
-    def conditions(self) -> List[Condition]:
-        """Search conditions for this provider"""
-        ...
-
-    def check(self, token: str, address: str = "", endpoint: str = "", model: str = "") -> CheckResult:
-        """Check if token is valid for this provider"""
-        ...
-
-    def list_models(self, token: str, address: str = "", endpoint: str = "") -> List[str]:
-        """List available models for this provider"""
-        ...
-
-
-class AuthProvider(Protocol):
+class IAuthProvider(Protocol):
     """Protocol for providing authentication artifacts and User-Agent.
 
     This decouples stages from upper-layer manager.coordinator module.
@@ -84,7 +52,7 @@ class AuthProvider(Protocol):
         ...
 
 
-class ResourceProvider(Protocol):
+class IResourceProvider(Protocol):
     """Protocol for resource management with dependency injection support.
 
     This interface defines the contract for resource providers that can be
@@ -108,7 +76,7 @@ class ResourceProvider(Protocol):
         ...
 
 
-class Provider(ABC):
+class IProvider(ABC):
     """Core provider interface with essential properties and methods
 
     This interface defines the contract that all AI service providers must implement.
@@ -155,8 +123,8 @@ class Provider(ABC):
         pass
 
     @abstractmethod
-    def list_models(self, token: str, address: str = "", endpoint: str = "") -> List[str]:
-        """List available models for this provider
+    def inspect(self, token: str, address: str = "", endpoint: str = "") -> List[str]:
+        """Inspect available models for this provider
 
         Args:
             token: API token for authentication
@@ -175,14 +143,14 @@ class Provider(ABC):
     def supports_model(self, model: str) -> bool:
         """Check if provider supports a specific model"""
         try:
-            available_models = self.list_models("")
+            available_models = self.inspect("")
             return model in available_models
         except Exception:
             return False
 
 
 # Abstract Interfaces and Protocols
-class PipelineBase(ABC):
+class IPipelineBase(ABC):
     """Abstract base class for pipeline objects that provide statistics
 
     This abstract base class defines the interface that pipeline objects must implement
@@ -224,57 +192,3 @@ class PipelineBase(ABC):
             return f"Pipeline: {active}/{total} stages active, state={state_str}"
         except Exception as e:
             return f"Pipeline: Error getting statistics - {e}"
-
-
-class RateLimiterInterface(Protocol):
-    """Protocol for rate limiting functionality"""
-
-    def acquire(self, service_type: str) -> bool:
-        """Acquire permission to make a request
-
-        Args:
-            service_type: Type of service requesting permission
-
-        Returns:
-            bool: True if permission granted, False if rate limited
-        """
-        ...
-
-    def report_result(self, service_type: str, success: bool) -> None:
-        """Report the result of a request for adaptive rate limiting
-
-        Args:
-            service_type: Type of service reporting result
-            success: Whether the request was successful
-        """
-        ...
-
-
-class TaskManagerInterface(Protocol):
-    """Protocol for task manager objects with typed providers and config"""
-
-    start_time: float
-    running: bool
-    providers: Dict[str, ProviderInterface]
-    pipeline: Optional["PipelineBase"]
-
-    @property
-    def config(self):
-        """Task manager configuration"""
-        ...
-
-    def start(self) -> None:
-        """Start the task manager"""
-        ...
-
-    def stop(self, timeout: float = 30.0) -> None:
-        """Stop the task manager
-
-        Args:
-            timeout: Maximum time to wait for graceful shutdown
-        """
-        ...
-
-    def wait_completion(self) -> None:
-        """Wait for all tasks to complete"""
-        ...

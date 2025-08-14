@@ -145,7 +145,7 @@ class StabilityAIProvider(BaseProvider):
         code, message = post_multipart(url=url, token=token, fields=fields)
         return self._judge(code=code, message=message)
 
-    def list_models(self, token: str, address: str = "", endpoint: str = "") -> List[str]:
+    def inspect(self, token: str, address: str = "", endpoint: str = "") -> List[str]:
         """List available StabilityAI models."""
         return []
 

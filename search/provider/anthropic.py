@@ -145,7 +145,7 @@ class AnthropicProvider(BaseProvider):
 
         return super()._judge(code, message)
 
-    def list_models(self, token: str, address: str = "", endpoint: str = "") -> List[str]:
+    def inspect(self, token: str, address: str = "", endpoint: str = "") -> List[str]:
         """List available Anthropic models."""
         token = trim(token)
         if not token:

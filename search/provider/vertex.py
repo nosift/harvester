@@ -244,7 +244,7 @@ class VertexProvider(BaseProvider):
         code, message = chat(url=url, headers=headers, params=params)
         return self._judge(code=code, message=message)
 
-    def list_models(self, token: str, address: str = "", endpoint: str = "") -> List[str]:
+    def inspect(self, token: str, address: str = "", endpoint: str = "") -> List[str]:
         """List available Vertex AI models."""
         token = trim(token)
         if not token:

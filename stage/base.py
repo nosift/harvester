@@ -17,7 +17,7 @@ from config.schemas import Config, StageConfig, TaskConfig
 from constant.system import DEFAULT_SHUTDOWN_TIMEOUT
 from core.metrics import StageMetrics
 from core.tasks import ProviderTask
-from core.types import AuthProvider
+from core.types import IAuthProvider
 from tools.logger import get_logger
 from tools.ratelimit import RateLimiter
 from tools.retry import ExponentialBackoff, RetryPolicy
@@ -33,7 +33,7 @@ class StageResources:
     providers: Dict[str, Any]
     config: Config
     task_configs: Dict[str, Any]
-    auth: AuthProvider
+    auth: IAuthProvider
 
     def is_enabled(self, provider: str, stage: str) -> bool:
         """Check if stage is enabled for provider"""

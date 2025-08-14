@@ -10,7 +10,7 @@ by upper layers and used by lower layers without creating circular dependencies.
 import threading
 from typing import Callable, Optional
 
-from .types import AuthProvider
+from .types import IAuthProvider
 
 
 class AuthService:
@@ -88,7 +88,7 @@ class AuthService:
         return "DefaultUserAgent/1.0"
 
 
-class GithubAuthProvider(AuthProvider):
+class GithubAuthProvider(IAuthProvider):
     """AuthProvider implementation using the core auth service."""
 
     def __init__(self):
@@ -105,7 +105,7 @@ class GithubAuthProvider(AuthProvider):
 
 
 # Convenience functions for easy access
-def get_auth_provider() -> AuthProvider:
+def get_auth_provider() -> IAuthProvider:
     """Get the core auth provider instance."""
     return GithubAuthProvider()
 

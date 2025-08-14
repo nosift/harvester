@@ -90,7 +90,7 @@ class AzureOpenAIProvider(OpenAILikeProvider):
 
         return super().check(token=token, address=url, endpoint=endpoint, model=model)
 
-    def list_models(self, token: str, address: str = "", endpoint: str = "") -> List[str]:
+    def inspect(self, token: str, address: str = "", endpoint: str = "") -> List[str]:
         """List available Azure OpenAI models."""
         domain = trim(address).removesuffix("/")
         if not re.match(r"^https?://([\w\-_]+\.[\w\-_]+)+", domain, flags=re.I):

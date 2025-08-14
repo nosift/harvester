@@ -22,6 +22,7 @@ from constant.system import SERVICE_TYPE_GITHUB_API, SERVICE_TYPE_GITHUB_WEB
 from core.enums import ErrorReason, ResultType
 from core.models import ProviderPatterns, Service
 from core.tasks import AcquisitionTask, CheckTask, InspectTask, ProviderTask, SearchTask
+from core.types import IProvider
 from refine.engine import RefineEngine
 from search import client
 from tools.logger import get_logger
@@ -373,8 +374,8 @@ class CheckStage(BasePipelineStage):
         try:
             # Get provider instance
             provider = self.resources.providers.get(task.provider)
-            if not provider:
-                logger.error(f"[{self.name}] unknown provider: {task.provider}")
+            if not provider or not isinstance(provider, IProvider):
+                logger.error(f"[{self.name}] unknown provider: {task.provider}, type: {type(provider)}")
                 return None
 
             # Apply rate limiting
@@ -468,12 +469,12 @@ class InspectStage(BasePipelineStage):
         try:
             # Get provider instance
             provider = self.resources.providers.get(task.provider)
-            if not provider:
-                logger.error(f"[{self.name}] unknown provider: {task.provider}")
+            if not provider or not isinstance(provider, IProvider):
+                logger.error(f"[{self.name}] unknown provider: {task.provider}, type: {type(provider)}")
                 return None
 
             # Get model list
-            model_list = provider.list_models(
+            models = provider.inspect(
                 token=task.service.key, address=task.service.address, endpoint=task.service.endpoint
             )
 
@@ -481,8 +482,8 @@ class InspectStage(BasePipelineStage):
             output = StageOutput(task=task)
 
             # Add models to be saved
-            if model_list:
-                output.add_models(task.provider, task.service.key, model_list)
+            if models:
+                output.add_models(task.provider, task.service.key, models)
 
             return output
 

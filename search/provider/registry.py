@@ -8,7 +8,7 @@ Enables plugin-style provider registration and creation.
 from typing import Dict, List, Type
 
 from core.models import Condition
-from core.types import Provider
+from core.types import IProvider
 from tools.logger import get_logger
 
 logger = get_logger("registry")
@@ -17,10 +17,10 @@ logger = get_logger("registry")
 class GlobalProviderRegistry:
     """Global registry for provider types and creation"""
 
-    _registry: Dict[str, Type[Provider]] = {}
+    _registry: Dict[str, Type[IProvider]] = {}
 
     @classmethod
-    def register(cls, provider_type: str, provider_class: Type[Provider]) -> None:
+    def register(cls, provider_type: str, provider_class: Type[IProvider]) -> None:
         """Register a provider class for a given type
 
         Args:
@@ -30,14 +30,14 @@ class GlobalProviderRegistry:
         if not provider_type:
             raise ValueError("Provider type cannot be empty")
 
-        if not issubclass(provider_class, Provider):
+        if not issubclass(provider_class, IProvider):
             raise ValueError(f"Provider class must inherit from Provider interface")
 
         cls._registry[provider_type.lower()] = provider_class
         logger.debug(f"Registered provider: {provider_type} -> {provider_class.__name__}")
 
     @classmethod
-    def create(cls, provider_type: str, conditions: List[Condition], **kwargs) -> Provider:
+    def create(cls, provider_type: str, conditions: List[Condition], **kwargs) -> IProvider:
         """Create provider instance by type
 
         Args:
@@ -114,7 +114,7 @@ class GlobalProviderRegistry:
 
 
 # Convenience function for external use
-def register_provider(provider_type: str, provider_class: Type[Provider]) -> None:
+def register_provider(provider_type: str, provider_class: Type[IProvider]) -> None:
     """Register a provider class
 
     Args:
@@ -124,7 +124,7 @@ def register_provider(provider_type: str, provider_class: Type[Provider]) -> Non
     GlobalProviderRegistry.register(provider_type, provider_class)
 
 
-def create_provider(provider_type: str, conditions: List[Condition], **kwargs) -> Provider:
+def create_provider(provider_type: str, conditions: List[Condition], **kwargs) -> IProvider:
     """Create provider instance
 
     Args:

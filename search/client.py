@@ -39,7 +39,7 @@ from constant.system import (
 )
 from core.exceptions import NetworkError, ValidationError
 from core.models import RateLimitConfig
-from core.types import ResourceProvider
+from core.types import IResourceProvider
 from tools.coordinator import get_user_agent
 from tools.ratelimit import RateLimiter
 from tools.resources import managed_network
@@ -50,7 +50,7 @@ from tools.utils import handle_exceptions
 class GitHubClient:
     """GitHub-specific HTTP client with rate limiting and dependency injection"""
 
-    def __init__(self, limiter: Optional[RateLimiter] = None, resource_provider: Optional[ResourceProvider] = None):
+    def __init__(self, limiter: Optional[RateLimiter] = None, resource_provider: Optional[IResourceProvider] = None):
         """Initialize GitHub client
 
         Args:

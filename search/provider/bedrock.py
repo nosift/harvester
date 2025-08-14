@@ -419,7 +419,7 @@ class BedrockProvider(BaseProvider):
             logger.error(f"Bedrock check failed: {e}")
             return CheckResult.fail(ErrorReason.UNKNOWN)
 
-    def list_models(self, token: str, address: str = "", endpoint: str = "") -> List[str]:
+    def inspect(self, token: str, address: str = "", endpoint: str = "") -> List[str]:
         """List available models from AWS Bedrock."""
         # Parse parameters: region=address, access_key=endpoint, secret_key=token
         region, access_key, secret_key = self._parse_credentials(address, endpoint, token)

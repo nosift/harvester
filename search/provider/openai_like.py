@@ -120,7 +120,7 @@ class OpenAILikeProvider(BaseProvider):
         result = json.loads(content)
         return [trim(x.get("id", "")) for x in result.get("data", [])]
 
-    def list_models(self, token: str, address: str = "", endpoint: str = "") -> List[str]:
+    def inspect(self, token: str, address: str = "", endpoint: str = "") -> List[str]:
         """List available models from OpenAI-like API."""
         headers = self._get_headers(token=token)
         if not headers or not self.base_url or not self.model_path:

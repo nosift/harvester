@@ -16,9 +16,8 @@ SystemStatus objects with the following features:
 
 Key Components:
     StatusBuilder: Main builder class with full validation and error handling
-    QuickStatusBuilder: Simplified static methods for common use cases
     Custom Exceptions: Specific exception types for better error handling
-    PipelineBase: Abstract base class for pipeline implementations
+    IPipelineBase: Abstract base class for pipeline implementations
     Type Protocols: Interface definitions for external dependencies
 
 Usage Examples:
@@ -32,9 +31,6 @@ Usage Examples:
     # Advanced usage with dependency injection
     custom_collector = StatusCollector(...)
     builder = StatusBuilder.create(collector=custom_collector)
-
-    # Quick status creation
-    status = QuickStatusBuilder.build_basic_status(5.0, SystemState.RUNNING)
 """
 
 import time
@@ -42,7 +38,7 @@ from typing import Any, Dict, List, Optional
 
 from core.enums import SystemState
 from core.metrics import TaskMetrics
-from core.types import PipelineBase, Provider, TaskManagerInterface
+from core.types import IPipelineBase, IProvider
 from tools.logger import get_logger
 
 from .collector import StatusCollector
@@ -56,7 +52,7 @@ from .models import (
 )
 
 # Type aliases for better readability
-ProviderDict = Dict[str, Provider]
+ProviderDict = Dict[str, IProvider]
 ResultStatsDict = Dict[str, PersistenceMetrics]
 
 
@@ -233,7 +229,7 @@ class StatusBuilder:
         )
         return self
 
-    def with_pipeline_stats(self, pipeline: PipelineBase) -> "StatusBuilder":
+    def with_pipeline_stats(self, pipeline: IPipelineBase) -> "StatusBuilder":
         """Set pipeline statistics using collector
 
         Args:
@@ -465,50 +461,3 @@ class StatusBuilder:
 
         self._built = True
         return self.status
-
-
-class QuickStatusBuilder:
-    """Quick builder for simple status construction"""
-
-    @staticmethod
-    def build_basic_status(runtime: float, state: SystemState) -> SystemStatus:
-        """Build basic system status quickly
-
-        Args:
-            runtime: System runtime
-            state: System state
-
-        Returns:
-            Basic SystemStatus object
-        """
-        return StatusBuilder.quick().with_basic_info(runtime, state).with_providers_info({}).build()
-
-    @staticmethod
-    def build_from_task_manager(task_manager: TaskManagerInterface) -> SystemStatus:
-        """Build status from task manager object
-
-        Args:
-            task_manager: TaskManager instance implementing TaskManagerProtocol
-
-        Returns:
-            SystemStatus built from task manager
-        """
-        builder = StatusBuilder.quick()
-
-        runtime = time.time() - task_manager.start if task_manager.start > 0 else 0
-        state = SystemState.RUNNING if task_manager.running else SystemState.STOPPED
-        builder.with_basic_info(runtime, state)
-
-        # Providers info
-        if hasattr(task_manager, "providers"):
-            builder.with_providers_info(task_manager.providers)
-
-        # Pipeline stats
-        if hasattr(task_manager, "pipeline") and task_manager.pipeline:
-            builder.with_pipeline_stats(task_manager.pipeline)
-
-            if hasattr(task_manager.pipeline, "result_manager") and task_manager.pipeline.result_manager:
-                result_stats = task_manager.pipeline.result_manager.all_stats()
-                builder.with_result_stats(result_stats)
-
-        return builder.build()

@@ -18,7 +18,7 @@ from config.schemas import Config, TaskConfig
 from constant.system import PATTERN_KEY
 from core.models import Condition, ProviderPatterns, TaskRecoveryInfo
 from core.tasks import ProviderTask, SearchTask
-from core.types import Provider
+from core.types import IProvider
 from search import client
 from search.provider.base import BaseProvider
 from search.provider.registry import GlobalProviderRegistry
@@ -126,7 +126,7 @@ class TaskManager(LifecycleManager):
         super().__init__("TaskManager")
 
         self.config = config
-        self.providers: Dict[str, Provider] = {}
+        self.providers: Dict[str, IProvider] = {}
         self.pipeline: Optional[Pipeline] = None
         self.start_time = time.time()
 

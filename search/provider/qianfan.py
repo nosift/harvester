@@ -56,7 +56,7 @@ class QianFanProvider(OpenAILikeProvider):
         code, message = chat(url=url, headers=headers, model=model)
         return self._judge(code=code, message=message)
 
-    def list_models(self, token: str, address: str = "", endpoint: str = "") -> List[str]:
+    def inspect(self, token: str, address: str = "", endpoint: str = "") -> List[str]:
         """List available QianFan models."""
         headers = self._get_headers(token=token)
         if not headers:

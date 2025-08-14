@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Union
 
 from core.enums import ErrorReason
 from core.models import CheckResult, Condition
-from core.types import Provider
+from core.types import IProvider
 from tools.logger import get_logger
 from tools.utils import trim
 
@@ -20,7 +20,7 @@ from ..client import chat
 logger = get_logger("provider")
 
 
-class BaseProvider(Provider):
+class BaseProvider(IProvider):
     """Base implementation for AI service providers.
 
     Implements the Provider interface to ensure type safety and consistency
@@ -157,7 +157,7 @@ class BaseProvider(Provider):
         code, message = chat(url=url, headers=headers, model=model)
         return self._judge(code=code, message=message)
 
-    def list_models(self, token: str, address: str = "", endpoint: str = "") -> List[str]:
+    def inspect(self, token: str, address: str = "", endpoint: str = "") -> List[str]:
         """List available models. Must be implemented by subclasses."""
         raise NotImplementedError
 

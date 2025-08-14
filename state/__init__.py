@@ -30,7 +30,7 @@ Usage:
     status_manager.show_status(StatusContext.MONITORING, DisplayMode.DETAILED)
 """
 
-from .builder import QuickStatusBuilder, StatusBuilder
+from .builder import StatusBuilder
 from .collector import StatusCollector
 from .config import DisplayConfigManager
 from .display import DisplayConfig, StatusDisplayEngine
@@ -84,7 +84,6 @@ __all__ = [
     "DisplayConfigManager",
     # Enhanced statistics tools
     "StatusBuilder",
-    "QuickStatusBuilder",
     "FieldMapper",
     "ApplicationStatus",
     "KeyMetrics",

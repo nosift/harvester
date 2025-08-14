@@ -14,7 +14,7 @@ from core.auth import configure_auth, get_auth_provider
 from core.enums import SystemState
 from core.metrics import PipelineStatus
 from core.tasks import ProviderTask
-from core.types import PipelineBase, ProviderInterface
+from core.types import IPipelineBase, IProvider
 from search import client
 from stage.base import BasePipelineStage, StageOutput, StageResources, StageUtils
 from stage.registry import StageRegistryMixin
@@ -30,7 +30,7 @@ from .queue import QueueManager
 logger = get_logger("manager")
 
 
-class Pipeline(PipelineBase, StageRegistryMixin, LifecycleManager):
+class Pipeline(IPipelineBase, StageRegistryMixin, LifecycleManager):
     """Dynamic pipeline coordinator with registry-based stage management
 
     Inherits from PipelineBase to provide type-safe statistics interface,
@@ -38,12 +38,12 @@ class Pipeline(PipelineBase, StageRegistryMixin, LifecycleManager):
     and from LifecycleManager for lifecycle management.
     """
 
-    def __init__(self, config: Config, providers: Dict[str, ProviderInterface]):
+    def __init__(self, config: Config, providers: Dict[str, IProvider]):
         # Initialize base classes
         LifecycleManager.__init__(self, "Pipeline")
 
         self.config = config
-        self.providers: Dict[str, ProviderInterface] = providers
+        self.providers: Dict[str, IProvider] = providers
 
         # Configure authentication service
         configure_auth(session_provider=get_session, token_provider=get_token, user_agent_provider=get_user_agent)

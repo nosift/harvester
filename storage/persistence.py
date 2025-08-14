@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional
 from constant.runtime import RESULT_TYPE_MAPPINGS
 from core.enums import ResultType
 from core.models import AllRecoveredTasks, RecoveredTasks, Service
-from core.types import Provider
+from core.types import IProvider
 from state.models import PersistenceMetrics
 from tools.logger import get_context_logger, get_logger
 
@@ -91,7 +91,7 @@ class ResultManager:
 
     def __init__(
         self,
-        provider: Provider,
+        provider: IProvider,
         workspace: str,
         batch_size: int = 50,
         save_interval: float = 30.0,
