@@ -15,13 +15,13 @@ from tools.logger import get_logger
 from tools.utils import trim
 
 from ..client import chat, http_get
-from .base import BaseProvider
+from .base import AIBaseProvider
 from .registry import register_provider
 
 logger = get_logger("provider")
 
 
-class VertexProvider(BaseProvider):
+class VertexProvider(AIBaseProvider):
     """Google Vertex AI provider implementation."""
 
     def __init__(self, conditions: List[Condition], default_model: str = ""):
@@ -158,7 +158,7 @@ class VertexProvider(BaseProvider):
         # Map parameters: address=location, endpoint=project_id
         location = trim(address) or "global"
         project = trim(endpoint)
-        model = trim(model) or self.default_model
+        model = trim(model) or self._default_model
 
         if not project:
             logger.error("Project ID is required for Vertex AI")

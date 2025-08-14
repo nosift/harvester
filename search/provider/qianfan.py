@@ -50,8 +50,8 @@ class QianFanProvider(OpenAILikeProvider):
         if endpoint:
             headers["appid"] = endpoint
 
-        model = trim(model) or self.default_model
-        url = urllib.parse.urljoin(self.base_url, self.completion_path)
+        model = trim(model) or self._default_model
+        url = urllib.parse.urljoin(self._base_url, self.completion_path)
 
         code, message = chat(url=url, headers=headers, model=model)
         return self._judge(code=code, message=message)
@@ -66,7 +66,7 @@ class QianFanProvider(OpenAILikeProvider):
         if endpoint:
             headers["appid"] = endpoint
 
-        url = urllib.parse.urljoin(self.base_url, self.model_path)
+        url = urllib.parse.urljoin(self._base_url, self.model_path)
         return self._fetch_models(url=url, headers=headers)
 
 

@@ -13,11 +13,11 @@ from tools.coordinator import get_user_agent
 from tools.utils import trim
 
 from ..client import chat
-from .base import BaseProvider
+from .base import AIBaseProvider
 from .registry import register_provider
 
 
-class GooeyAIProvider(BaseProvider):
+class GooeyAIProvider(AIBaseProvider):
     """GooeyAI provider implementation."""
 
     def __init__(self, conditions: List[Condition], default_model: str = ""):
@@ -48,8 +48,8 @@ class GooeyAIProvider(BaseProvider):
         if not headers:
             return CheckResult.fail(ErrorReason.INVALID_KEY)
 
-        model = trim(model) or self.default_model
-        url = urllib.parse.urljoin(self.base_url, self.completion_path)
+        model = trim(model) or self._default_model
+        url = urllib.parse.urljoin(self._base_url, self.completion_path)
 
         params = {
             "search_query": "I'm looking for 4 stats that have a negative spin and create FOMO/urgency. and 4 stats that have a positive spin.\n\nI only want stats that focus on how Al can help people, teams and companies be better.\n\nSearch the web for reports created this year. Only cite actual stats from those reports. BE CAREFUL. Give a link to each source after each stat. Preferably use reports from companies like Microsoft, Linkedin, Gartner, PWC, Deloitte, Accenture, BCG, McKinsey.",

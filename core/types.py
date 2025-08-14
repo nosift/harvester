@@ -91,24 +91,12 @@ class IProvider(ABC):
 
     @property
     @abstractmethod
-    def base_url(self) -> str:
-        """Base URL for the provider's API"""
-        pass
-
-    @property
-    @abstractmethod
-    def default_model(self) -> str:
-        """Default model for this provider"""
-        pass
-
-    @property
-    @abstractmethod
     def conditions(self) -> List[Condition]:
         """Search conditions for this provider"""
         pass
 
     @abstractmethod
-    def check(self, token: str, address: str = "", endpoint: str = "", model: str = "") -> CheckResult:
+    def check(self, token: str, address: str = "", endpoint: str = "", model: str = "", **kwargs) -> CheckResult:
         """Check if token is valid for this provider
 
         Args:
@@ -116,6 +104,7 @@ class IProvider(ABC):
             address: Optional custom address
             endpoint: Optional custom endpoint
             model: Optional model to test
+            kwargs: Optional additional keyword arguments
 
         Returns:
             CheckResult: Result of the validation check
@@ -123,30 +112,19 @@ class IProvider(ABC):
         pass
 
     @abstractmethod
-    def inspect(self, token: str, address: str = "", endpoint: str = "") -> List[str]:
+    def inspect(self, token: str, address: str = "", endpoint: str = "", **kwargs) -> List[str]:
         """Inspect available models for this provider
 
         Args:
             token: API token for authentication
             address: Optional custom address
             endpoint: Optional custom endpoint
+            kwargs: Optional additional keyword arguments
 
         Returns:
             List[str]: Available model names
         """
         pass
-
-    def get_display_name(self) -> str:
-        """Get human-readable display name"""
-        return self.name.replace("_", " ").title()
-
-    def supports_model(self, model: str) -> bool:
-        """Check if provider supports a specific model"""
-        try:
-            available_models = self.inspect("")
-            return model in available_models
-        except Exception:
-            return False
 
 
 # Abstract Interfaces and Protocols

@@ -75,7 +75,7 @@ class AzureOpenAIProvider(OpenAILikeProvider):
         ):
             return ""
 
-        model = trim(model) or self.default_model
+        model = trim(model) or self._default_model
         return f"{address}/deployments/{model}/{self.completion_path}?api-version={self.api_version}"
 
     def check(self, token: str, address: str = "", endpoint: str = "", model: str = "") -> CheckResult:

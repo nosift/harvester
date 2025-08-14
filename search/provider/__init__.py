@@ -6,7 +6,7 @@ AI Provider implementations for search engine.
 
 from .anthropic import AnthropicProvider
 from .azure import AzureOpenAIProvider
-from .base import BaseProvider
+from .base import AIBaseProvider
 from .bedrock import BedrockProvider
 from .doubao import DoubaoProvider
 from .gemini import GeminiProvider
@@ -18,7 +18,7 @@ from .stabilityai import StabilityAIProvider
 from .vertex import VertexProvider
 
 __all__ = [
-    "BaseProvider",
+    "AIBaseProvider",
     "OpenAILikeProvider",
     "OpenAIProvider",
     "AnthropicProvider",

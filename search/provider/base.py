@@ -20,7 +20,7 @@ from ..client import chat
 logger = get_logger("provider")
 
 
-class BaseProvider(IProvider):
+class AIBaseProvider(IProvider):
     """Base implementation for AI service providers.
 
     Implements the Provider interface to ensure type safety and consistency
@@ -142,8 +142,8 @@ class BaseProvider(IProvider):
     def check(self, token: str, address: str = "", endpoint: str = "", model: str = "") -> CheckResult:
         """Check if token is valid."""
         url, regex = trim(address), r"^https?://([\w\-_]+\.[\w\-_]+)+"
-        if not url and re.match(regex, self.base_url, flags=re.I):
-            url = urllib.parse.urljoin(self.base_url, self.completion_path)
+        if not url and re.match(regex, self._base_url, flags=re.I):
+            url = urllib.parse.urljoin(self._base_url, self.completion_path)
 
         if not re.match(regex, url, flags=re.I):
             logger.error(f"Invalid URL: {url}, skipping check")
@@ -153,7 +153,7 @@ class BaseProvider(IProvider):
         if not headers:
             return CheckResult.fail(ErrorReason.BAD_REQUEST)
 
-        model = trim(model) or self.default_model
+        model = trim(model) or self._default_model
         code, message = chat(url=url, headers=headers, model=model)
         return self._judge(code=code, message=message)
 
@@ -161,21 +161,11 @@ class BaseProvider(IProvider):
         """List available models. Must be implemented by subclasses."""
         raise NotImplementedError
 
-    # Implement abstract properties from Provider interface
+    # Implement abstract properties from IProvider interface
     @property
     def name(self) -> str:
         """Provider name identifier"""
         return self._name
-
-    @property
-    def base_url(self) -> str:
-        """Base URL for the provider's API"""
-        return self._base_url
-
-    @property
-    def default_model(self) -> str:
-        """Default model for this provider"""
-        return self._default_model
 
     @property
     def conditions(self) -> List:

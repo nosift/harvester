@@ -23,10 +23,10 @@ from core.models import CheckResult, Condition
 from tools.coordinator import get_user_agent
 from tools.utils import trim
 
-from .base import BaseProvider
+from .base import AIBaseProvider
 
 
-class StabilityAIProvider(BaseProvider):
+class StabilityAIProvider(AIBaseProvider):
     """StabilityAI provider implementation."""
 
     def __init__(self, conditions: List[Condition], default_model: str = ""):
@@ -138,8 +138,8 @@ class StabilityAIProvider(BaseProvider):
         if not token:
             return CheckResult.fail(ErrorReason.INVALID_KEY)
 
-        model = trim(model) or self.default_model
-        url = f"{urllib.parse.urljoin(self.base_url, self.completion_path)}/{model}"
+        model = trim(model) or self._default_model
+        url = f"{urllib.parse.urljoin(self._base_url, self.completion_path)}/{model}"
         fields = {"prompt": "Lighthouse on a cliff overlooking the ocean", "aspect_ratio": "3:2"}
 
         code, message = post_multipart(url=url, token=token, fields=fields)

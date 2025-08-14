@@ -42,7 +42,7 @@ class DoubaoProvider(OpenAILikeProvider):
         """Check Doubao token validity."""
         model = trim(model)
         if not model:
-            model = self.default_model
+            model = self._default_model
 
         return super().check(token=token, address=address, endpoint=endpoint, model=model)
 

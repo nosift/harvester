@@ -20,13 +20,13 @@ from tools.coordinator import get_user_agent
 from tools.logger import get_logger
 from tools.utils import trim
 
-from .base import BaseProvider
+from .base import AIBaseProvider
 from .registry import register_provider
 
 logger = get_logger("provider")
 
 
-class AnthropicProvider(BaseProvider):
+class AnthropicProvider(AIBaseProvider):
     """Anthropic provider implementation."""
 
     def __init__(self, conditions: List[Condition], default_model: str = ""):

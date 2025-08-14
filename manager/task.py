@@ -20,7 +20,7 @@ from core.models import Condition, ProviderPatterns, TaskRecoveryInfo
 from core.tasks import ProviderTask, SearchTask
 from core.types import IProvider
 from search import client
-from search.provider.base import BaseProvider
+from search.provider.base import AIBaseProvider
 from search.provider.registry import GlobalProviderRegistry
 from stage.base import StageUtils
 from stage.factory import TaskFactory
@@ -92,7 +92,7 @@ class ProviderFactory:
     """Factory for creating provider instances from configuration"""
 
     @staticmethod
-    def create_provider(task_config: TaskConfig, conditions: List[Condition]) -> BaseProvider:
+    def create_provider(task_config: TaskConfig, conditions: List[Condition]) -> AIBaseProvider:
         """Create provider instance using global registry"""
         provider_type = task_config.provider_type
         name = task_config.name
@@ -452,7 +452,7 @@ class TaskManager(LifecycleManager):
         # Recover result tasks using enhanced strategy
         recovery_strategy.recover_result_tasks(recovery_info.result_tasks)
 
-    def _get_provider_patterns(self, provider: BaseProvider) -> ProviderPatterns:
+    def _get_provider_patterns(self, provider: AIBaseProvider) -> ProviderPatterns:
         """Extract patterns from provider conditions"""
         patterns = ProviderPatterns()
 

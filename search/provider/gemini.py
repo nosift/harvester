@@ -19,11 +19,11 @@ from core.models import CheckResult, Condition
 from tools.utils import trim
 
 from ..client import chat, http_get
-from .base import BaseProvider
+from .base import AIBaseProvider
 from .registry import register_provider
 
 
-class GeminiProvider(BaseProvider):
+class GeminiProvider(AIBaseProvider):
     """Google Gemini provider implementation."""
 
     def __init__(self, conditions: List[Condition], default_model: str = ""):
@@ -57,8 +57,8 @@ class GeminiProvider(BaseProvider):
         if not token:
             return CheckResult.fail(ErrorReason.INVALID_KEY)
 
-        model = trim(model) or self.default_model
-        url = f"{urllib.parse.urljoin(self.base_url, self.completion_path)}/{model}:generateContent?key={token}"
+        model = trim(model) or self._default_model
+        url = f"{urllib.parse.urljoin(self._base_url, self.completion_path)}/{model}:generateContent?key={token}"
 
         params = {"contents": [{"role": "user", "parts": [{"text": DEFAULT_QUESTION}]}]}
         code, message = chat(url=url, headers=self._get_headers(token=token), params=params)
@@ -70,7 +70,7 @@ class GeminiProvider(BaseProvider):
         if not token:
             return []
 
-        url = urllib.parse.urljoin(self.base_url, self.model_path) + f"?key={token}"
+        url = urllib.parse.urljoin(self._base_url, self.model_path) + f"?key={token}"
         content = http_get(url=url, headers=self._get_headers(token=token), interval=1)
         if not content:
             return []

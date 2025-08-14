@@ -20,13 +20,13 @@ from tools.logger import get_logger
 from tools.utils import trim
 
 from ..client import http_get
-from .base import BaseProvider
+from .base import AIBaseProvider
 from .registry import register_provider
 
 logger = get_logger("provider")
 
 
-class BedrockProvider(BaseProvider):
+class BedrockProvider(AIBaseProvider):
     """AWS Bedrock provider with manual SigV4 authentication."""
 
     def __init__(self, conditions: List[Condition], default_model: str = ""):
@@ -380,7 +380,7 @@ class BedrockProvider(BaseProvider):
         region = self._validate_region(region)
 
         # Use provided model or default
-        model_id = trim(model) or self.default_model
+        model_id = trim(model) or self._default_model
 
         # Build request URL
         url = self._build_invoke_url(region, model_id)

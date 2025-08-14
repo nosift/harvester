@@ -20,11 +20,11 @@ from tools.coordinator import get_user_agent
 from tools.utils import handle_exceptions, trim
 
 from ..client import http_get
-from .base import BaseProvider
+from .base import AIBaseProvider
 from .registry import register_provider
 
 
-class OpenAILikeProvider(BaseProvider):
+class OpenAILikeProvider(AIBaseProvider):
     """Base class for OpenAI-compatible providers."""
 
     def __init__(
@@ -78,7 +78,7 @@ class OpenAILikeProvider(BaseProvider):
                         if error_type or "authorization" in error_reason:
                             return CheckResult.fail(ErrorReason.INVALID_KEY)
             except:
-                logger.error(f"Failed to parse response, domain: {self.base_url}, message: {message}")
+                logger.error(f"Failed to parse response, domain: {self._base_url}, message: {message}")
                 return CheckResult.fail(ErrorReason.UNKNOWN)
 
             return CheckResult.success()
@@ -123,10 +123,10 @@ class OpenAILikeProvider(BaseProvider):
     def inspect(self, token: str, address: str = "", endpoint: str = "") -> List[str]:
         """List available models from OpenAI-like API."""
         headers = self._get_headers(token=token)
-        if not headers or not self.base_url or not self.model_path:
+        if not headers or not self._base_url or not self.model_path:
             return []
 
-        url = urllib.parse.urljoin(self.base_url, self.model_path)
+        url = urllib.parse.urljoin(self._base_url, self.model_path)
         return self._fetch_models(url=url, headers=headers)
 
 
