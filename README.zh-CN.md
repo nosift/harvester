@@ -1,8 +1,23 @@
 # Harvester - 通用数据采集框架
 
-**中文文档 | [English](README.md)**
+**中文文档 |📖 [English](README.md) | 🔗 [更多工具](https://github.com/wzdnzd/ai-collector)**
 
 一个通用的、自适应的数据采集框架，专为从多种数据源进行全面信息采集而设计，支持GitHub、网络测绘平台（FOFA、Shodan）以及任意网络端点。虽然当前实现专注于AI服务提供商密钥发现作为实际应用示例，但框架在架构上具备可扩展性，可支持多样化的数据采集场景。
+
+---
+
+⭐⭐⭐ **如果这个项目对您有帮助，欢迎给个小星星！** 您的支持是我们持续改进和添加新功能的动力。
+
+---
+
+## 目录
+
+- [主要功能](#主要功能)
+- [快速开始](#快速开始)
+- [项目架构](#项目架构)
+- [目录结构](#目录结构)
+- [故障排除](#故障排除)
+- [贡献指南](#贡献指南)
 
 ## 项目目标
 
@@ -533,26 +548,15 @@ sequenceDiagram
 
 ## 系统要求
 
-### **最低要求**
-- **Python**: 3.8+ (推荐 3.9+)
-- **操作系统**: Windows 10+, macOS 10.15+, Linux (Ubuntu 18.04+, CentOS 7+)
-- **内存**: 2GB RAM (大规模操作推荐 4GB+)
-- **存储**: 1GB 可用空间 (结果存储需要额外空间)
-- **网络**: 稳定的互联网连接用于API访问
-
-### **推荐配置**
-- **Python**: 3.11+ 以获得最佳性能
-- **内存**: 8GB+ RAM 用于并发处理
-- **CPU**: 多核处理器 (推荐 4+ 核心)
-- **存储**: SSD 以获得更好的 I/O 性能
-- **网络**: 高带宽连接用于大规模数据采集
-
 ### **依赖项**
-- **核心**: `pydantic`, `pyyaml`, `requests`, `aiohttp`
+- **Python**: 3.10+
+- **第三方库**: `PyYAML`
 - **可选**: `uvloop` (Linux/macOS 性能提升)
 - **开发**: `pytest`, `black`, `mypy` (贡献者使用)
 
 ## 快速开始
+
+> 📚 如需完整文档、教程和高级用法指南，请访问 [DeepWiki 文档](https://deepwiki.com/wzdnzd/harvester)
 
 1. **安装**
    ```bash
@@ -562,10 +566,24 @@ sequenceDiagram
    ```
 
 2. **配置**
+
+  > 选择以下方法之一创建配置文件
+
+   **方法一：生成默认配置**
    ```bash
    python main.py --create-config
    ```
-   编辑生成的`config.yaml`文件：
+
+   **方法二：从示例复制**
+   ```bash
+   # 基础配置
+   cp examples/config-simple.yaml config.yaml
+
+   # 包含所有选项的完整配置
+   cp examples/config-full.yaml config.yaml
+   ```
+
+   编辑配置文件：
    - 设置Github会话令牌或API密钥
    - 配置提供商搜索模式
    - 调整速率限制和线程数
@@ -594,11 +612,32 @@ sequenceDiagram
         - name: "openai"  # 提供商名称
           enabled: true   # 是否启用
           provider_type: "openai_like"
+
+          # API验证配置
+          api:
+            base_url: "https://api.openai.com"
+            completion_path: "/v1/chat/completions"
+            default_model: "gpt-3.5-turbo"
+
+          # 密钥识别模式
+          patterns:
+            key_pattern: "sk-[A-Za-z0-9]{48}"
+
+          # 搜索条件
+          conditions:
+            - query: "sk- openai api key"
+            - query: "OPENAI_API_KEY"
+
+          # 处理阶段
           stages:
             search: true    # 启用搜索阶段
             gather: true   # 启用采集阶段
             check: true     # 启用验证阶段
             inspect: true    # 启用API能力检查
+
+          # 额外配置
+          extras:
+            directory: "openai_results"     # 自定义输出目录
       ```
 
    2. **完整配置** - 包含所有高级选项：
@@ -625,7 +664,23 @@ sequenceDiagram
                directory: "结果目录"
          ```
 
-   完整配置示例请参考 `examples/` 目录下的模板文件。
+   ### 高级任务配置
+
+   > 📋 **完整配置示例请参考：**
+   > - [`examples/config-full.yaml`](examples/config-full.yaml) - 包含所有可用选项的完整配置
+   > - [`examples/config-simple.yaml`](examples/config-simple.yaml) - 快速开始的基础配置
+
+   `tasks` 部分是配置的核心，定义了要搜索哪些提供商以及如何处理它们。请参考上面基础配置示例中的完整tasks配置。
+
+   #### 主要配置选项
+
+   - **`name`**: 任务的唯一标识符
+   - **`provider_type`**: 决定验证方法（`openai_like`、`anthropic`、`gemini` 等）
+   - **`api`**: 用于密钥验证的API端点配置
+   - **`patterns.key_pattern`**: 识别有效API密钥的正则表达式模式
+   - **`conditions`**: 用于查找潜在密钥的搜索查询
+   - **`stages`**: 启用/禁用特定的处理阶段
+   - **`extras.directory`**: 结果的自定义输出目录
 
 3. **运行**
    ```bash
@@ -635,7 +690,7 @@ sequenceDiagram
    python main.py --log-level DEBUG # 启用调试日志
    ```
 
-## 项目结构
+## 目录结构
 
 ```
 harvester/
@@ -1002,53 +1057,8 @@ global_config:
 
 **使用本软件即表示您已阅读、理解并同意上述条款。使用风险自负。**
 
-## 配置参考
 
-### 持久化配置
-
-系统通过配置文件中的 `persistence` 部分支持灵活的持久化选项：
-
-- **`batch_size`**: 批量保存结果的大小
-  - 影响：内存使用和磁盘I/O频率
-  - 默认值：50
-  - 建议范围：10-200
-
-- **`save_interval`**: 结果保存间隔（秒）
-  - 影响：数据丢失风险和系统性能
-  - 默认值：30秒
-  - 最小值：5秒
-
-- **`queue_interval`**: 队列状态保存间隔（秒）
-  - 影响：任务恢复能力和磁盘使用
-  - 默认值：60秒
-  - 最小值：10秒
-
-- **`snapshot_interval`**: 定期快照间隔（秒）
-  - 影响：系统恢复能力和存储使用
-  - 默认值：300秒（5分钟）
-  - 最小值：60秒
-
-- **`shutdown_timeout`**: 关闭期间所有后台线程连接的统一超时时间
-  - 影响：持久化刷新线程、队列保存线程、工作管理器线程
-  - 默认值：30秒
-  - 最小值：1秒
-
-### 输出样式
-
-应用程序支持两种输出样式：
-
-```bash
-# 经典样式（简洁输出）
-python main.py --style classic
-
-# 详细样式（详细输出）
-python main.py --style detailed
-```
 
 ## 联系方式
 
 如使用过程中遇到问题或其他咨询，请通过 GitHub Issues 联系项目维护者。
-
-## 备注
-
-前往 [ai-collector](https://github.com/wzdnzd/ai-collector) 获取更多实用工具。

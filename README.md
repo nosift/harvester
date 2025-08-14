@@ -1,8 +1,23 @@
 # Harvester - Universal Data Acquisition Framework
 
-**📖 [中文文档](README.zh-CN.md) | English**
+**📖 [中文文档](README.zh-CN.md) | English | 🔗 [More Tools](https://github.com/wzdnzd/ai-collector)**
 
 A universal, adaptive data acquisition framework designed for comprehensive information acquisition from multiple sources including GitHub, network mapping platforms (FOFA, Shodan), and arbitrary web endpoints. While the current implementation focuses on AI service provider key discovery as a practical example, the framework is architected for extensibility to support diverse data acquisition scenarios.
+
+---
+
+⭐⭐⭐ **If this project helps you, please give it a star!** Your support motivates us to keep improving and adding new features.
+
+---
+
+## Table of Contents
+
+- [Key Features](#key-features)
+- [Quick Start](#quick-start)
+- [Architecture](#architecture)
+- [Directory Structure](#directory-structure)
+- [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
 
 ## Project Goals
 
@@ -548,26 +563,15 @@ The system features a sophisticated **Query Optimization Engine** with mathemati
 
 ## System Requirements
 
-### **Minimum Requirements**
-- **Python**: 3.8+ (3.9+ recommended)
-- **Operating System**: Windows 10+, macOS 10.15+, Linux (Ubuntu 18.04+, CentOS 7+)
-- **Memory**: 2GB RAM (4GB+ recommended for large-scale operations)
-- **Storage**: 1GB free space (additional space needed for results storage)
-- **Network**: Stable internet connection for API access
-
-### **Recommended Configuration**
-- **Python**: 3.11+ for optimal performance
-- **Memory**: 8GB+ RAM for concurrent processing
-- **CPU**: Multi-core processor (4+ cores recommended)
-- **Storage**: SSD for better I/O performance
-- **Network**: High-bandwidth connection for large-scale data acquisition
-
 ### **Dependencies**
-- **Core**: `pydantic`, `pyyaml`, `requests`, `aiohttp`
+- **Python**: 3.10+
+- **Libraries**: `PyYAML`
 - **Optional**: `uvloop` (Linux/macOS performance boost)
 - **Development**: `pytest`, `black`, `mypy` (for contributors)
 
 ## Quick Start
+
+> 📚 For comprehensive documentation, tutorials, and advanced usage guides, please visit [DeepWiki](https://deepwiki.com/wzdnzd/harvester)
 
 1. **Installation**
    ```bash
@@ -577,10 +581,24 @@ The system features a sophisticated **Query Optimization Engine** with mathemati
    ```
 
 2. **Configuration**
+
+  > Choose one of the following methods to create your configuration
+
+   **Method 1: Generate default configuration**
    ```bash
    python main.py --create-config
    ```
-   Edit the generated `config.yaml`:
+
+   **Method 2: Copy from examples**
+   ```bash
+   # For basic configuration
+   cp examples/config-simple.yaml config.yaml
+
+   # For full configuration with all options
+   cp examples/config-full.yaml config.yaml
+   ```
+
+   Edit the configuration file:
    - Set your Github session token or API key
    - Configure provider search patterns
    - Adjust rate limits and thread counts
@@ -609,11 +627,32 @@ The system features a sophisticated **Query Optimization Engine** with mathemati
         - name: "openai"  # Provider name
           enabled: true   # Enable/disable provider
           provider_type: "openai_like"
+
+          # API validation configuration
+          api:
+            base_url: "https://api.openai.com"
+            completion_path: "/v1/chat/completions"
+            default_model: "gpt-3.5-turbo"
+
+          # Key detection patterns
+          patterns:
+            key_pattern: "sk-[A-Za-z0-9]{48}"
+
+          # Search conditions
+          conditions:
+            - query: "sk- openai api key"
+            - query: "OPENAI_API_KEY"
+
+          # Processing stages
           stages:
             search: true    # Enable search stage
             gather: true   # Enable acquisition stage
             check: true     # Enable validation stage
             inspect: true    # Enable API capability inspection
+
+          # Additional settings
+          extras:
+            directory: "openai_results"     # Custom output directory
       ```
 
    2. **Full Configuration** - Includes all advanced options:
@@ -625,22 +664,24 @@ The system features a sophisticated **Query Optimization Engine** with mathemati
       - `worker`: Worker pool configuration
       - `ratelimits`: Rate limiting settings
       - `tasks`: Provider task configurations
-         ```yaml
-         tasks:
-           - name: "provider_name"
-             api:
-               base_url: "https://api.example.com"
-               completion_path: "/v1/chat/completions"
-               default_model: "model-name"
-             patterns:
-               key_pattern: "key matching pattern"
-             conditions:
-               - query: "search condition"
-             extras:
-               directory: "results directory"
-         ```
 
-   For complete configuration examples, refer to the template files in the `examples/` directory.
+   ### Advanced Task Configuration
+
+   > 📋 **For complete configuration examples, please refer to:**
+   > - [`examples/config-full.yaml`](examples/config-full.yaml) - Comprehensive configuration with all available options
+   > - [`examples/config-simple.yaml`](examples/config-simple.yaml) - Basic configuration for quick start
+
+   The `tasks` section is the core of the configuration, defining what providers to search and how to process them. Refer to the basic configuration example above for a complete tasks configuration.
+
+   #### Key Configuration Options
+
+   - **`name`**: Unique identifier for the task
+   - **`provider_type`**: Determines validation method (`openai_like`, `anthropic`, `gemini`, etc.)
+   - **`api`**: API endpoint configuration for key validation
+   - **`patterns.key_pattern`**: Regex pattern to identify valid API keys
+   - **`conditions`**: Search queries to find potential keys
+   - **`stages`**: Enable/disable specific processing stages
+   - **`extras.directory`**: Custom output directory for results
 
 3. **Running**
    ```bash
@@ -650,7 +691,7 @@ The system features a sophisticated **Query Optimization Engine** with mathemati
    python main.py --log-level DEBUG # Enable debug logging
    ```
 
-## Project Structure
+## Directory Structure
 
 ```
 harvester/
@@ -1019,50 +1060,8 @@ This project is developed **solely for educational and technical research purpos
 
 **By using this software, you acknowledge that you have read, understood, and agree to these terms. Use at your own risk.**
 
-## Configuration Reference
 
-### Persistence Configuration
-
-The system supports flexible persistence options through the `persistence` section in your configuration:
-
-```yaml
-persistence:
-  batch_size: 50              # Number of items to batch before writing
-  save_interval: 30           # Seconds between periodic saves
-  queue_interval: 60          # Seconds between queue state saves
-  snapshot_interval: 300      # Seconds between snapshot builds
-  auto_restore: true          # Automatically restore from previous session
-  shutdown_timeout: 30        # Seconds to wait for graceful shutdown
-  format: txt                 # Output format, support txt or ndjson
-```
-
-#### Key Settings
-
-- **`format`**: Controls whether to write text files alongside NDJSON shards
-  - `false` (default): Only write NDJSON shards (recommended for new deployments)
-  - `true`: Write both NDJSON shards and legacy text files (for backward compatibility)
-
-- **`shutdown_timeout`**: Unified timeout for all background thread joins during shutdown
-  - Affects: persistence flush threads, queue save threads, worker manager threads
-  - Default: 30 seconds
-  - Minimum: 1 second
-
-### Output Styles
-
-The application supports two output styles:
-
-```bash
-# Classic style (concise output)
-python main.py --style classic
-
-# Detailed style (verbose output)
-python main.py --style detailed
-```
 
 ## Contact
 
 For questions or other inquiries during usage, please contact the project maintainers through GitHub Issues.
-
-## Notes
-
-Visit [ai-collector](https://github.com/wzdnzd/ai-collector) for more useful tools.
