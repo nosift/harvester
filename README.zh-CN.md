@@ -725,7 +725,6 @@ harvester/
 │   ├── queue.py      # 队列管理
 │   ├── shutdown.py   # 关闭协调
 │   ├── task.py       # 任务管理
-│   ├── watcher.py    # 资源监控
 │   ├── worker.py     # 工作线程管理
 │   └── __init__.py   # 包初始化
 ├── refine/           # 查询优化

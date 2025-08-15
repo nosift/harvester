@@ -726,7 +726,6 @@ harvester/
 │   ├── queue.py      # Queue management
 │   ├── shutdown.py   # Shutdown coordination
 │   ├── task.py       # Task management
-│   ├── watcher.py    # Resource watching
 │   ├── worker.py     # Worker thread management
 │   └── __init__.py   # Package initialization
 ├── refine/           # Query optimization

@@ -184,9 +184,9 @@ class AlertManager:
 
 
 class MultiProviderMonitoring(PeriodicTaskManager):
-    """Main monitoring system for multi-provider pipeline"""
+    """Main monitoring system for multi-provider pipeline with integrated status display"""
 
-    def __init__(self, config: MonitoringConfig):
+    def __init__(self, config: MonitoringConfig, status_manager: StatusManager = None, display_style: str = "classic"):
         # Initialize base class
         super().__init__("MultiProviderMonitoring", config.update_interval)
 
@@ -198,10 +198,14 @@ class MultiProviderMonitoring(PeriodicTaskManager):
         self.stats_history: deque = deque(maxlen=MONITORING_THRESHOLDS.get("max_stats_history", 100))
         self.lock = threading.Lock()
 
+        # Display functionality
+        self.status_manager = status_manager
+        self.display_style = display_style
+
         # Add default console alert handler
         self.alert_manager.add_handler(self._console_alert_handler)
 
-        logger.info("Initialized multi-provider monitoring")
+        logger.info(f"Initialized multi-provider monitoring with display: {status_manager is not None}")
 
     def _on_start(self) -> None:
         """Initialize pipeline stats when starting"""
@@ -293,7 +297,7 @@ class MultiProviderMonitoring(PeriodicTaskManager):
             )
 
     def _execute_periodic_task(self) -> None:
-        """Execute monitoring task"""
+        """Execute monitoring and display tasks"""
         # Collect current stats
         current_stats = self.current_stats()
 
@@ -307,15 +311,45 @@ class MultiProviderMonitoring(PeriodicTaskManager):
         # Perform periodic cleanup of alert TTL index
         self.alert_manager.periodic_cleanup()
 
+        # Display status immediately after collecting data (if status manager available)
+        if self.status_manager:
+            self._display_status()
+
+    def _display_status(self) -> None:
+        """Display current status using integrated status manager"""
+        try:
+            if self.display_style == "classic":
+                # Classic style: force MAIN context with STANDARD mode
+                self.status_manager.show_status(StatusContext.MAIN, DisplayMode.STANDARD, force_refresh=True)
+            else:
+                # Detailed style: use monitoring context with detailed mode
+                self.status_manager.show_status(StatusContext.MONITORING, DisplayMode.DETAILED)
+        except Exception as e:
+            logger.debug(f"Error in status display: {e}")
+
+    def set_status_manager(self, status_manager: StatusManager, display_style: str = None) -> None:
+        """Set or update the status manager for display"""
+        self.status_manager = status_manager
+        if display_style:
+            self.display_style = display_style
+        logger.info(f"Status manager updated with style: {self.display_style}")
+
+    def remove_status_manager(self) -> None:
+        """Remove status manager to disable display"""
+        self.status_manager = None
+        logger.info("Status display disabled")
+
     def _console_alert_handler(self, alert: Alert) -> None:
         """Default console alert handler"""
         timestamp = time.strftime("%H:%M:%S")
         logger.warning(f"[{timestamp}] ALERT ({alert.type.value}): {alert.message}")
 
 
-def create_monitoring_system(config: MonitoringConfig) -> MultiProviderMonitoring:
-    """Factory function to create monitoring system"""
-    return MultiProviderMonitoring(config)
+def create_monitoring_system(
+    config: MonitoringConfig, status_manager: StatusManager = None, display_style: str = "classic"
+) -> MultiProviderMonitoring:
+    """Factory function to create monitoring system with optional status display"""
+    return MultiProviderMonitoring(config, status_manager, display_style)
 
 
 if __name__ == "__main__":

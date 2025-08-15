@@ -32,7 +32,6 @@ from core.enums import SystemState
 from manager.monitor import MultiProviderMonitoring, create_monitoring_system
 from manager.shutdown import ShutdownCoordinator
 from manager.task import TaskManager, create_task_manager
-from manager.watcher import StatusLooper
 from manager.worker import WorkerManager, create_worker_manager
 from state.models import (
     ApplicationStatus,
@@ -75,7 +74,6 @@ class AsyncPipelineApplication:
 
         # New coordinated components
         self.shutdown_coordinator: Optional[ShutdownCoordinator] = None
-        self.status_looper: Optional[StatusLooper] = None
 
         # Statistics
         self.stats_display_interval = float(DEFAULT_STATS_INTERVAL)
@@ -100,7 +98,7 @@ class AsyncPipelineApplication:
             self.task_manager = create_task_manager(self.config_path)
             logger.info(f"Task manager created with {len(self.task_manager.providers)} providers")
 
-            # Create monitoring system using monitoring config
+            # Create monitoring system using monitoring config (without status manager yet)
             monitoring_config = self.config.monitoring
             self.monitoring = create_monitoring_system(monitoring_config)
             logger.info("Monitoring system created")
@@ -139,6 +137,10 @@ class AsyncPipelineApplication:
             )
             logger.info("Status manager initialized")
 
+            # Set status manager in monitoring system for integrated display
+            self.monitoring.set_status_manager(self.status_manager, self.display_style)
+            logger.info(f"Status display integrated into monitoring system with style: {self.display_style}")
+
             # Initialize shutdown coordinator
             components = [self.task_manager, self.monitoring]
             if self.worker_manager:
@@ -150,16 +152,8 @@ class AsyncPipelineApplication:
             )
             logger.info("Shutdown coordinator initialized")
 
-            # Initialize status looper
-            self.status_looper = StatusLooper(
-                status_manager=self.status_manager,
-                display_style=self.display_style,
-                update_interval=self.stats_display_interval,
-                render_interval=self.stats_display_interval,
-                context=StatusContext.SYSTEM,
-                mode=DisplayMode.STANDARD,
-            )
-            logger.info("Status looper initialized")
+            # Status display is now integrated into monitoring system
+            logger.info("Status display integrated into monitoring system")
 
             # Register completion event listeners
             if self.worker_manager:
@@ -207,7 +201,7 @@ class AsyncPipelineApplication:
 
             # Start coordinated components
             self.shutdown_coordinator.start_completion_monitor()
-            self.status_looper.start()
+            # Status display is now integrated into monitoring system (already started)
 
             # Simplified main loop using shutdown coordinator
             while self.running:
@@ -253,9 +247,7 @@ class AsyncPipelineApplication:
             self.running = False
             self.shutdown_event.set()
 
-            # Stop status looper first
-            if self.status_looper:
-                self.status_looper.stop()
+            # Status display will be stopped with monitoring system
 
             # Use shutdown coordinator for graceful component shutdown
             if self.shutdown_coordinator:
