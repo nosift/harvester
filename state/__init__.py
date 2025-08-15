@@ -32,7 +32,6 @@ Usage:
 
 from .builder import StatusBuilder
 from .collector import StatusCollector
-from .config import DisplayConfigManager
 from .display import DisplayConfig, StatusDisplayEngine
 from .mapper import FieldMapper
 from .models import (
@@ -81,7 +80,6 @@ __all__ = [
     # Components
     "StatusCollector",
     "StatusDisplayEngine",
-    "DisplayConfigManager",
     # Enhanced statistics tools
     "StatusBuilder",
     "FieldMapper",

@@ -20,8 +20,6 @@ from .balancer import Balancer
 from .coordinator import (
     ResourceManager,
     get_credential,
-    get_github_session,
-    get_github_token,
     get_managers_stats,
     get_session,
     get_token,
@@ -79,8 +77,6 @@ __all__ = [
     # Coordinator and resource management
     "ResourceManager",
     "get_credential",
-    "get_github_session",
-    "get_github_token",
     "get_managers_stats",
     "get_session",
     "get_token",

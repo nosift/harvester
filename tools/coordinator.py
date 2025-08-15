@@ -316,8 +316,3 @@ def update_user_agents(user_agents: list[str]) -> None:
             logger.info(f"Updated User-Agents: {len(user_agents)} agents")
     except Exception as e:
         logger.error(f"Failed to update User-Agents: {e}")
-
-
-# Convenience aliases for backward compatibility
-get_github_session = get_session
-get_github_token = get_token

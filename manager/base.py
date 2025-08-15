@@ -14,7 +14,7 @@ logger = get_logger("manager")
 
 
 class LifecycleManager(ABC):
-    """Base class for components that manage lifecycle without background threads."""
+    """Base class for components that manage lifecycle."""
 
     def __init__(self, name: str):
         """
@@ -89,7 +89,7 @@ class LifecycleManager(ABC):
         pass
 
 
-class ThreadManager(ABC):
+class ThreadManager(LifecycleManager):
     """Base class for components that manage background threads."""
 
     def __init__(self, name: str, shutdown_timeout: float = 5.0, daemon: bool = True):
@@ -101,20 +101,16 @@ class ThreadManager(ABC):
             shutdown_timeout: Maximum time to wait for graceful shutdown
             daemon: Whether the thread should be daemon
         """
-        self.name = name
-        self.running = False
+        # Initialize parent class
+        super().__init__(name)
+
+        # Thread-specific configuration
         self.shutdown_timeout = max(1.0, float(shutdown_timeout))
         self.daemon = daemon
 
         # Thread management
         self._thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
-
-        # External completion tracking
-        self._externally_finished = False
-
-        # Thread safety
-        self._lock = threading.Lock()
 
     def start(self) -> None:
         """Start the background thread if not already running."""
@@ -163,20 +159,6 @@ class ThreadManager(ABC):
 
         logger.info(f"Stopped {self.name}")
 
-    def is_finished(self) -> bool:
-        """Check if component is finished."""
-        return not self.running or self._externally_finished
-
-    def mark_finished(self) -> None:
-        """Mark component as finished by external signal."""
-        self._externally_finished = True
-        logger.info(f"{self.name} marked as finished externally")
-
-    @property
-    def is_running(self) -> bool:
-        """Check if component is currently running."""
-        return self.running
-
     def _thread_wrapper(self) -> None:
         """Wrapper for main thread loop with error handling."""
         try:
@@ -189,18 +171,6 @@ class ThreadManager(ABC):
     @abstractmethod
     def _main_loop(self) -> None:
         """Main thread loop implementation."""
-        pass
-
-    def _on_start(self) -> None:
-        """Hook called during start before thread creation."""
-        pass
-
-    def _on_stop(self) -> None:
-        """Hook called during stop before waiting for thread."""
-        pass
-
-    def _on_stopped(self) -> None:
-        """Hook called after thread has stopped."""
         pass
 
 

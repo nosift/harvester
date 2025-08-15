@@ -108,7 +108,6 @@ class IProvider(ABC):
         pass
 
 
-# Abstract Interfaces and Protocols
 class IPipelineBase(ABC):
     """Abstract base class for pipeline objects that provide statistics
 
@@ -143,7 +142,6 @@ class IPipelineBase(ABC):
         """
         try:
             stats = self.get_all_stats()
-            # Access dataclass fields directly instead of dict-like access
             active = getattr(stats, "active", 0)
             total = getattr(stats, "total", 0)
             state = getattr(stats, "state", None)

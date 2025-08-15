@@ -7,6 +7,7 @@ This module provides unified rendering for all status display needs.
 It replaces the scattered display logic throughout the system.
 """
 
+from dataclasses import dataclass
 from typing import List
 
 from config import get_config
@@ -17,56 +18,57 @@ from .models import AlertLevel, DisplayMode, StatusContext, SystemStatus
 logger = get_logger("state")
 
 
+@dataclass
 class DisplayConfig:
     """Display configuration for rendering"""
 
-    def __init__(
-        self,
-        context: StatusContext = StatusContext.SYSTEM,
-        mode: DisplayMode = DisplayMode.STANDARD,
-        title: str = None,
-        show_workers: bool = None,
-        show_alerts: bool = None,
-        show_performance: bool = None,
-        show_newline_prefix: bool = None,
-        **kwargs,
-    ):
-        self.context = context
-        self.mode = mode
-        self.title = title or self._get_default_title(context)
+    context: StatusContext
+    mode: DisplayMode
+    title: str
+    workers: bool
+    alerts: bool
+    performance: bool
+    newline: bool
 
-        # Get default configuration from unified config system
+    @classmethod
+    def create(cls, context: StatusContext, mode: DisplayMode, **overrides) -> "DisplayConfig":
+        """Create display configuration from unified config system"""
         try:
             config = get_config()
             context_configs = config.display.contexts.get(context.value, {})
             mode_config = context_configs.get(mode.value)
 
             if mode_config:
-                self.workers = show_workers if show_workers is not None else mode_config.show_workers
-                self.alerts = show_alerts if show_alerts is not None else mode_config.show_alerts
-                self.performance = show_performance if show_performance is not None else mode_config.show_performance
-                self.newline = (
-                    show_newline_prefix if show_newline_prefix is not None else mode_config.show_newline_prefix
-                )
+                base_config = {
+                    "title": mode_config.title,
+                    "workers": mode_config.show_workers,
+                    "alerts": mode_config.show_alerts,
+                    "performance": mode_config.show_performance,
+                    "newline": mode_config.show_newline_prefix,
+                }
             else:
-                # Fallback to defaults
-                self.workers = show_workers if show_workers is not None else True
-                self.alerts = show_alerts if show_alerts is not None else True
-                self.performance = show_performance if show_performance is not None else False
-                self.newline = show_newline_prefix if show_newline_prefix is not None else False
-        except:
-            # Fallback to defaults if config not available
-            self.workers = show_workers if show_workers is not None else True
-            self.alerts = show_alerts if show_alerts is not None else True
-            self.performance = show_performance if show_performance is not None else False
-            self.newline = show_newline_prefix if show_newline_prefix is not None else False
+                base_config = cls._get_defaults(context, mode)
 
-        # Apply any additional overrides
-        for key, value in kwargs.items():
-            setattr(self, key, value)
+        except Exception as e:
+            logger.debug(f"Config load failed, using defaults: {e}")
+            base_config = cls._get_defaults(context, mode)
 
-    def _get_default_title(self, context: StatusContext) -> str:
-        """Get default title for context"""
+        # Apply overrides
+        final_config = {**base_config, **overrides}
+
+        return cls(
+            context=context,
+            mode=mode,
+            title=final_config["title"],
+            workers=final_config["workers"],
+            alerts=final_config["alerts"],
+            performance=final_config["performance"],
+            newline=final_config["newline"],
+        )
+
+    @staticmethod
+    def _get_defaults(context: StatusContext, mode: DisplayMode) -> dict:
+        """Get default configuration values"""
         titles = {
             StatusContext.SYSTEM: "System Status",
             StatusContext.TASK_MANAGER: "Task Manager Status",
@@ -74,7 +76,14 @@ class DisplayConfig:
             StatusContext.APPLICATION: "Application Status",
             StatusContext.MAIN: "Pipeline Status",
         }
-        return titles.get(context, "Status")
+
+        return {
+            "title": titles.get(context, "Status"),
+            "workers": mode not in [DisplayMode.COMPACT, DisplayMode.SUMMARY],
+            "alerts": mode in [DisplayMode.DETAILED, DisplayMode.MONITORING],
+            "performance": mode in [DisplayMode.DETAILED, DisplayMode.MONITORING],
+            "newline": mode in [DisplayMode.DETAILED, DisplayMode.MONITORING],
+        }
 
 
 class StatusDisplayEngine:
@@ -261,24 +270,18 @@ class StatusDisplayEngine:
 
     def _render_detailed(self, status: SystemStatus, config: DisplayConfig) -> None:
         """Render detailed format with all information"""
-        # Detailed mode uses configuration from unified config system
-        try:
-            app_config = get_config()
-            detailed_config = app_config.display.contexts.get("system", {}).get("detailed")
-            if detailed_config:
-                config.workers = detailed_config.show_workers
-                config.alerts = detailed_config.show_alerts
-                config.performance = detailed_config.show_performance
-            else:
-                config.workers = True
-                config.alerts = True
-                config.performance = True
-        except:
-            config.workers = True
-            config.alerts = True
-            config.performance = True
+        # Create detailed config with all sections enabled
+        detailed_config = DisplayConfig.create(
+            config.context,
+            config.mode,
+            title=config.title,
+            workers=True,
+            alerts=True,
+            performance=True,
+            newline=config.newline,
+        )
 
-        self._render_standard(status, config)
+        self._render_standard(status, detailed_config)
 
         # Add extra detailed sections
         lines = []

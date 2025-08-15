@@ -12,7 +12,6 @@ from tools.logger import get_logger
 from tools.utils import handle_exceptions
 
 from .collector import StatusCollector
-from .config import DisplayConfigManager
 from .display import DisplayConfig, StatusDisplayEngine
 from .models import DisplayMode, StatusContext, SystemStatus
 
@@ -40,7 +39,6 @@ class StatusManager:
         # Initialize components
         self.data_collector = StatusCollector(task_manager, monitoring, application)
         self.display_engine = StatusDisplayEngine()
-        self.config_manager = DisplayConfigManager()
 
         # Cache for performance
         self._last_status = None
@@ -134,22 +132,6 @@ class StatusManager:
         """Convenience method for main script stats display"""
         self.show_status(StatusContext.MAIN, DisplayMode.STANDARD)
 
-    def update_components(self, task_manager=None, monitoring=None, application=None) -> None:
-        """Update component references"""
-        if task_manager is not None:
-            self.task_manager = task_manager
-            self.data_collector.task_manager = task_manager
-
-        if monitoring is not None:
-            self.monitoring = monitoring
-            self.data_collector.monitoring = monitoring
-
-        if application is not None:
-            self.application = application
-            self.data_collector.application = application
-
-        logger.debug("Updated StatusManager components")
-
     def clear_cache(self) -> None:
         """Clear all cached data"""
         self.data_collector.clear_cache()
@@ -160,27 +142,11 @@ class StatusManager:
     def _get_display_config(self, context: StatusContext, mode: DisplayMode, **options) -> DisplayConfig:
         """Get display configuration for the given context and mode"""
         try:
-            # Get base configuration from config manager
-            display_config = self.config_manager.config(context, mode)
-
-            # Create display config with overrides
-            config = DisplayConfig(
-                context=context,
-                mode=mode,
-                title=display_config.title,
-                show_workers=display_config.workers,
-                show_alerts=display_config.alerts,
-                show_performance=display_config.performance,
-                show_newline_prefix=display_config.newline,
-                **options,
-            )
-
-            return config
-
+            return DisplayConfig.create(context, mode, **options)
         except Exception as e:
-            logger.debug(f"Error getting display config: {e}")
-            # Return default config
-            return DisplayConfig(context=context, mode=mode, **options)
+            logger.debug(f"Error creating display config: {e}")
+            # Return default config with fallback values
+            return DisplayConfig.create(context, mode, **options)
 
     def _show_emergency_status(self, context: StatusContext, mode: DisplayMode) -> None:
         """Show emergency status when main display fails"""
