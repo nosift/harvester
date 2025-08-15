@@ -21,7 +21,7 @@ class StatusLooper(PeriodicTaskManager):
     def __init__(
         self,
         status_manager: Any,
-        renderer: Any,
+        display_style: str = "classic",
         update_interval: float = 5.0,
         render_interval: float = 1.0,
         context: StatusContext = StatusContext.SYSTEM,
@@ -31,7 +31,7 @@ class StatusLooper(PeriodicTaskManager):
 
         Args:
             status_manager: Status manager for data collection
-            renderer: Status renderer for display
+            display_style: Display style ("classic" or "detailed")
             update_interval: Interval for status updates in seconds
             render_interval: Interval for rendering in seconds
             context: Status context for rendering
@@ -41,7 +41,7 @@ class StatusLooper(PeriodicTaskManager):
         super().__init__("StatusLooper", min(update_interval, render_interval))
 
         self.status_manager = status_manager
-        self.renderer = renderer
+        self.display_style = display_style
         self.update_interval = update_interval
         self.render_interval = render_interval
         self.context = context
@@ -89,10 +89,12 @@ class StatusLooper(PeriodicTaskManager):
 
     def _render_status(self) -> None:
         """Render current status"""
-        if hasattr(self.renderer, "render"):
-            self.renderer.render(self.status_manager, self.context, self.mode)
-        elif hasattr(self.renderer, "update"):
-            self.renderer.update()
+        if self.display_style == "classic":
+            # Classic style: force MAIN context with STANDARD mode
+            self.status_manager.show_status(StatusContext.MAIN, DisplayMode.STANDARD, force_refresh=True)
+        else:
+            # Detailed style: use provided context and mode
+            self.status_manager.show_status(self.context, self.mode or DisplayMode.DETAILED)
 
     def get_status(self) -> dict:
         """Get current status information

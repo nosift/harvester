@@ -427,9 +427,8 @@ sequenceDiagram
    - **显示引擎** (`state/display.py`): 用户友好的进度可视化和格式化
    - **状态构建器** (`state/builder.py`): 状态数据构建和转换
    - **状态模型** (`state/models.py`): 监控数据结构和指标
-   - **状态配置** (`state/config.py`): 显示配置管理
    - **字段映射** (`state/mapper.py`): 数据字段映射和转换
-   - **状态渲染** (`state/renderer.py`): 状态输出渲染和格式化
+
 
 ## 处理阶段
 
@@ -768,11 +767,9 @@ harvester/
 ├── state/            # 状态管理
 │   ├── builder.py    # 状态构建器
 │   ├── collector.py  # 状态收集
-│   ├── config.py     # 状态配置
 │   ├── display.py    # 显示引擎
 │   ├── mapper.py     # 字段映射
 │   ├── models.py     # 状态数据模型
-│   ├── renderer.py   # 状态渲染
 │   ├── status.py     # 状态管理器
 │   └── __init__.py   # 包初始化
 ├── storage/          # 存储和持久化

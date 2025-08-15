@@ -442,9 +442,8 @@ sequenceDiagram
    - **Display Engine** (`state/display.py`): User-friendly progress visualization and formatting
    - **Status Builder** (`state/builder.py`): Status data construction and transformation
    - **State Models** (`state/models.py`): Monitoring data structures and metrics
-   - **State Configuration** (`state/config.py`): Display configuration management
    - **Field Mapping** (`state/mapper.py`): Data field mapping and transformation
-   - **Status Rendering** (`state/renderer.py`): Status output rendering and formatting
+
 
 ## Processing Stages
 
@@ -769,11 +768,9 @@ harvester/
 ├── state/            # State management
 │   ├── builder.py    # Status builder
 │   ├── collector.py  # State collection
-│   ├── config.py     # State configuration
 │   ├── display.py    # Display engine
 │   ├── mapper.py     # Field mapping
 │   ├── models.py     # State data models
-│   ├── renderer.py   # Status rendering
 │   ├── status.py     # Status manager
 │   └── __init__.py   # Package initialization
 ├── storage/          # Storage and persistence

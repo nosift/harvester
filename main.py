@@ -44,7 +44,6 @@ from state.models import (
     StatusContext,
     WorkerMetrics,
 )
-from state.renderer import AppStyleRenderer, MainStyleRenderer, StatusRenderer
 from state.status import StatusManager
 from tools.coordinator import init_managers
 from tools.logger import flush_logs, get_logger, init_logging
@@ -81,8 +80,8 @@ class AsyncPipelineApplication:
         # Statistics
         self.stats_display_interval = float(DEFAULT_STATS_INTERVAL)
 
-        # Status rendering strategy (default to MainStyle per user preference)
-        self.renderer: StatusRenderer = MainStyleRenderer()
+        # Status display style (default to classic per user preference)
+        self.display_style = "classic"
 
         logger.info(f"Initialized application with config: {config_path}")
 
@@ -154,7 +153,7 @@ class AsyncPipelineApplication:
             # Initialize status looper
             self.status_looper = StatusLooper(
                 status_manager=self.status_manager,
-                renderer=self.renderer,
+                display_style=self.display_style,
                 update_interval=self.stats_display_interval,
                 render_interval=self.stats_display_interval,
                 context=StatusContext.SYSTEM,
@@ -523,11 +522,8 @@ def create_sample_config(output_path: str = DEFAULT_CONFIG_FILE) -> bool:
 def create_application(config_path: str = DEFAULT_CONFIG_FILE, style: str = "classic") -> AsyncPipelineApplication:
     """Factory function to create application instance"""
     app = AsyncPipelineApplication(config_path)
-    # Configure renderer based on style
-    if str(style).lower() in ("classic", "main"):
-        app.renderer = MainStyleRenderer()
-    else:
-        app.renderer = AppStyleRenderer()
+    # Configure display style
+    app.display_style = "classic" if str(style).lower() in ("classic", "main") else "detailed"
     return app
 
 
