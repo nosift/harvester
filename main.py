@@ -107,16 +107,16 @@ class AsyncPipelineApplication:
             logger.info("Monitoring system created")
 
             # Create worker manager only if enabled
-            if self.config.worker_manager.enabled:
+            if self.config.worker.enabled:
                 worker_manager_config = WorkerManagerConfig(
-                    enabled=self.config.worker_manager.enabled,
-                    min_workers=self.config.worker_manager.min_workers,
-                    max_workers=self.config.worker_manager.max_workers,
-                    target_queue_size=self.config.worker_manager.target_queue_size,
-                    adjustment_interval=self.config.worker_manager.adjustment_interval,
-                    scale_up_threshold=self.config.worker_manager.scale_up_threshold,
-                    scale_down_threshold=self.config.worker_manager.scale_down_threshold,
-                    log_recommendations=self.config.worker_manager.log_recommendations,
+                    enabled=self.config.worker.enabled,
+                    min_workers=self.config.worker.min_workers,
+                    max_workers=self.config.worker.max_workers,
+                    target_queue_size=self.config.worker.target_queue_size,
+                    adjustment_interval=self.config.worker.adjustment_interval,
+                    scale_up_threshold=self.config.worker.scale_up_threshold,
+                    scale_down_threshold=self.config.worker.scale_down_threshold,
+                    log_recommendations=self.config.worker.log_recommendations,
                 )
                 self.worker_manager = create_worker_manager(
                     worker_manager_config, shutdown_timeout=float(self.config.persistence.shutdown_timeout)

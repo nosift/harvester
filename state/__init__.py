@@ -32,7 +32,7 @@ Usage:
 
 from .builder import StatusBuilder
 from .collector import StatusCollector
-from .display import DisplayConfig, StatusDisplayEngine
+from .display import StatusDisplayEngine, get_display_config
 from .mapper import FieldMapper
 from .models import (
     Alert,
@@ -65,7 +65,7 @@ __all__ = [
     # Core data models
     "MonitoringSnapshot",
     "MonitoringSummary",
-    "DisplayConfig",
+    "get_display_config",
     "StatsTotals",
     "PipelineUpdate",
     "ProviderState",

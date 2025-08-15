@@ -12,7 +12,7 @@ from tools.logger import get_logger
 from tools.utils import handle_exceptions
 
 from .collector import StatusCollector
-from .display import DisplayConfig, StatusDisplayEngine
+from .display import StatusDisplayEngine, get_display_config
 from .models import DisplayMode, StatusContext, SystemStatus
 
 logger = get_logger("state")
@@ -78,7 +78,7 @@ class StatusManager:
 
             # 3. Render status
             try:
-                self.display_engine.render(system_status, display_config)
+                self.display_engine.render(system_status, context, mode, display_config)
             except Exception as e:
                 raise
 
@@ -139,14 +139,14 @@ class StatusManager:
         self._last_update = 0.0
         logger.debug("StatusManager cache cleared")
 
-    def _get_display_config(self, context: StatusContext, mode: DisplayMode, **options) -> DisplayConfig:
+    def _get_display_config(self, context: StatusContext, mode: DisplayMode, **options):
         """Get display configuration for the given context and mode"""
         try:
-            return DisplayConfig.create(context, mode, **options)
+            return get_display_config(context, mode, **options)
         except Exception as e:
             logger.debug(f"Error creating display config: {e}")
             # Return default config with fallback values
-            return DisplayConfig.create(context, mode, **options)
+            return get_display_config(context, mode, **options)
 
     def _show_emergency_status(self, context: StatusContext, mode: DisplayMode) -> None:
         """Show emergency status when main display fails"""

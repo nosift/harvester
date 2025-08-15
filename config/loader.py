@@ -110,11 +110,11 @@ class ConfigLoader:
 
         # Parse worker configuration
         if "worker" in data:
-            config.worker_manager = self._parse_worker_manager_config(data["worker"])
+            config.worker = self._parse_worker_manager_config(data["worker"])
 
         # Parse rate limits
         if "ratelimits" in data:
-            config.rate_limits = self._parse_rate_limits(data["ratelimits"])
+            config.ratelimits = self._parse_rate_limits(data["ratelimits"])
 
         # Parse tasks
         if "tasks" in data:
@@ -229,6 +229,8 @@ class ConfigLoader:
                     show_alerts=mode_data.get("show_alerts", True),
                     show_performance=mode_data.get("show_performance", False),
                     show_newline_prefix=mode_data.get("show_newline_prefix", False),
+                    width=mode_data.get("width", 80),
+                    max_alerts_per_level=mode_data.get("max_alerts_per_level", 3),
                 )
 
         return DisplayConfig(contexts=contexts)

@@ -69,18 +69,24 @@ display:
         show_alerts: true
         show_performance: false
         show_newline_prefix: false
+        width: 80
+        max_alerts_per_level: 3
       compact:
         title: "System Status"
         show_workers: false
         show_alerts: false
         show_performance: false
         show_newline_prefix: false
+        width: 80
+        max_alerts_per_level: 3
       detailed:
         title: "Detailed System Status"
         show_workers: true
         show_alerts: true
         show_performance: true
         show_newline_prefix: true
+        width: 80
+        max_alerts_per_level: 3
     # Monitoring display settings
     monitoring:
       standard:
@@ -89,13 +95,17 @@ display:
         show_alerts: true
         show_performance: true
         show_newline_prefix: false
+        width: 80
+        max_alerts_per_level: 3
       detailed:
         title: "Detailed Pipeline Monitoring"
         show_workers: true
         show_alerts: true
         show_performance: true
         show_newline_prefix: true
-    # Task status display settings
+        width: 80
+        max_alerts_per_level: 3
+    # Task manager display settings
     task:
       standard:
         title: "Task Manager Status"
@@ -103,12 +113,16 @@ display:
         show_alerts: false
         show_performance: false
         show_newline_prefix: false
+        width: 80
+        max_alerts_per_level: 3
       compact:
-        title: "Task Progress"
+        title: "Task Manager Status"
         show_workers: false
         show_alerts: false
         show_performance: false
         show_newline_prefix: false
+        width: 80
+        max_alerts_per_level: 3
     # Application status display settings
     application:
       standard:
@@ -117,13 +131,17 @@ display:
         show_alerts: true
         show_performance: false
         show_newline_prefix: false
+        width: 80
+        max_alerts_per_level: 3
       detailed:
         title: "Detailed Application Status"
         show_workers: true
         show_alerts: true
         show_performance: true
         show_newline_prefix: false
-    # Main process stats display settings
+        width: 80
+        max_alerts_per_level: 3
+    # Main status display settings
     main:
       standard:
         title: "Pipeline Status"
@@ -131,6 +149,8 @@ display:
         show_alerts: false
         show_performance: false
         show_newline_prefix: false
+        width: 80
+        max_alerts_per_level: 3
 
 # Data persistence configuration
 persistence:
@@ -189,61 +209,9 @@ ratelimits:
 
 # Provider task configurations
 tasks:
-  # OpenAI configuration example
-  - name: "openai" # Provider name
-    enabled: true # Enable/disable this provider
-    provider_type: "openai_like" # Provider type for API compatibility
-    use_api: false # Whether to use GitHub API for searching
-
-    # Pipeline stage enable/disable flags
-    stages:
-      search: true # Enable search stage
-      gather: true # Enable acquisition stage
-      check: true # Enable validation stage
-      inspect: true # Enable API capability inspection
-
-    # API configuration for validation and inspection
-    api:
-      base_url: "https://api.openai.com" # Base API endpoint
-      completion_path: "/v1/chat/completions" # Chat completion endpoint
-      model_path: "/v1/models" # Models list endpoint
-      default_model: "gpt-4" # Default model to use
-      auth_key: "Authorization" # Auth header key
-      api_version: "" # API version (if required)
-      timeout: 30 # Request timeout in seconds
-      retries: 3 # Number of retries
-      extra_headers: {} # Additional headers
-
-    # Pattern matching configuration for key extraction
-    patterns:
-      key_pattern: "sk(?:-proj)?-[a-zA-Z0-9]{20}T3BlbkFJ[a-zA-Z0-9]{20}" # API key pattern
-      address_pattern: "" # API endpoint pattern
-      endpoint_pattern: "" # Additional endpoint pattern
-      model_pattern: "" # Model name pattern
-
-    # Search conditions for GitHub
-    conditions:
-      - query: '"T3BlbkFJ"' # Search query
-        regex: "" # Optional regex pattern
-
-    # Provider-specific rate limits
-    rate_limit:
-      base_rate: 2.0 # Base rate in requests per second
-      burst_limit: 10 # Maximum burst size
-      adaptive: true # Enable adaptive rate limiting
-      backoff_factor: 0.5 # Rate reduction factor
-      recovery_factor: 1.1 # Rate increase factor
-      max_rate_multiplier: 2.0 # Maximum rate increase
-      min_rate_multiplier: 0.1 # Minimum rate decrease
-
-    # Additional provider-specific settings
-    extras:
-      directory: "results" # Results directory
-
-  # Anthropic configuration example
-  - name: "anthropic"
+  - name: openai
     enabled: true
-    provider_type: "anthropic"
+    provider_type: openai_like
     use_api: false
     stages:
       search: true
@@ -251,17 +219,22 @@ tasks:
       check: true
       inspect: true
     api:
-      base_url: "https://api.anthropic.com"
-      completion_path: "/v1/messages"
-      model_path: "/v1/models"
-      default_model: "claude-sonnet-4-20250514"
-      auth_key: "x-api-key"
+      base_url: https://api.openai.com
+      completion_path: /v1/chat/completions
+      model_path: /v1/models
+      default_model: gpt-4o-mini
+      auth_key: Authorization
+      extra_headers: {}
+      api_version: ""
       timeout: 30
       retries: 3
     patterns:
-      key_pattern: 'sk-ant-(?:sid01|api03)-[a-zA-Z0-9_\-]{93}AA'
+      key_pattern: sk(?:-proj)?-[a-zA-Z0-9]{20}T3BlbkFJ[a-zA-Z0-9]{20}
+      address_pattern: ""
+      endpoint_pattern: ""
+      model_pattern: ""
     conditions:
-      - query: '/sk-ant-(?:sid01|api03)-[a-zA-Z0-9_\-]{93}AA/'
+      - query: '"T3BlbkFJ"'
     rate_limit:
       base_rate: 1.0
       burst_limit: 5

@@ -264,7 +264,7 @@ class TaskManager(LifecycleManager):
     def _create_pipeline(self) -> None:
         """Create pipeline with all components"""
         # Add provider-specific rate limits
-        rate_limits = self.config.rate_limits.copy()
+        rate_limits = self.config.ratelimits.copy()
 
         for task_config in self.config.tasks:
             if task_config.enabled:
@@ -273,7 +273,7 @@ class TaskManager(LifecycleManager):
 
         # Create runtime config with provider rate limits (avoid mutating original config)
         runtime_config = copy.deepcopy(self.config)
-        runtime_config.rate_limits = rate_limits
+        runtime_config.ratelimits = rate_limits
 
         self.pipeline = Pipeline(runtime_config, self.providers)
 

@@ -57,6 +57,9 @@ class ConfigValidator:
         # Validate rate limits
         self._validate_rate_limits(config)
 
+        # Validate display configuration
+        self._validate_display_config(config)
+
         # Check for validation errors
         if self.errors:
             error_msg = "Configuration validation failed:\n" + "\n".join(f"- {error}" for error in self.errors)
@@ -206,7 +209,7 @@ class ConfigValidator:
         Args:
             config: Configuration object
         """
-        worker_manager = config.worker_manager
+        worker_manager = config.worker
 
         if worker_manager.min_workers < 1:
             self.errors.append("Worker manager min_workers must be at least 1")
@@ -235,7 +238,7 @@ class ConfigValidator:
         Args:
             config: Configuration object
         """
-        for name, rate_limit in config.rate_limits.items():
+        for name, rate_limit in config.ratelimits.items():
             if rate_limit.base_rate <= 0:
                 self.errors.append(f"Base rate must be positive for rate limit: {name}")
 
@@ -245,5 +248,45 @@ class ConfigValidator:
             if not (0 < rate_limit.backoff_factor < 1):
                 self.errors.append(f"Backoff factor must be between 0 and 1 for rate limit: {name}")
 
-            if rate_limit.recovery_factor <= 1:
-                self.errors.append(f"Recovery factor must be > 1 for rate limit: {name}")
+    def _validate_display_config(self, config: Config) -> None:
+        """Validate display configuration
+
+        Args:
+            config: Configuration object to validate
+        """
+        if not hasattr(config, "display") or not config.display:
+            self.errors.append("Display configuration is missing")
+            return
+
+        if not hasattr(config.display, "contexts") or not config.display.contexts:
+            self.errors.append("Display contexts configuration is missing")
+            return
+
+        # Validate each context and mode
+        for context_name, context_modes in config.display.contexts.items():
+            if not context_modes:
+                self.errors.append(f"No display modes configured for context: {context_name}")
+                continue
+
+            for mode_name, mode_config in context_modes.items():
+                prefix = f"Display config [{context_name}.{mode_name}]"
+
+                # Validate width
+                if hasattr(mode_config, "width"):
+                    if mode_config.width <= 0:
+                        self.errors.append(f"{prefix}: width must be positive")
+                    elif mode_config.width < 40:
+                        self.errors.append(f"{prefix}: width should be at least 40 characters")
+                    elif mode_config.width > 200:
+                        self.errors.append(f"{prefix}: width should not exceed 200 characters")
+
+                # Validate max_alerts_per_level
+                if hasattr(mode_config, "max_alerts_per_level"):
+                    if mode_config.max_alerts_per_level <= 0:
+                        self.errors.append(f"{prefix}: max_alerts_per_level must be positive")
+                    elif mode_config.max_alerts_per_level > 20:
+                        self.errors.append(f"{prefix}: max_alerts_per_level should not exceed 20")
+
+                # Validate title
+                if hasattr(mode_config, "title") and not mode_config.title.strip():
+                    self.errors.append(f"{prefix}: title cannot be empty")

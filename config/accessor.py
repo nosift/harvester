@@ -108,7 +108,7 @@ class ConfigAccessor:
         Returns:
             Optional[RateLimitConfig]: Rate limit configuration or None if not found
         """
-        return self.config.rate_limits.get(name)
+        return self.config.ratelimits.get(name)
 
     def get_github_sessions(self) -> list[str]:
         """Get GitHub session tokens
@@ -208,4 +208,4 @@ class ConfigAccessor:
         Returns:
             WorkerManagerConfig: Worker manager configuration object
         """
-        return self.config.worker_manager
+        return self.config.worker

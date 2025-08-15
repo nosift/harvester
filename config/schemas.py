@@ -162,6 +162,10 @@ class DisplayContextConfig:
     show_performance: bool = False
     show_newline_prefix: bool = False
 
+    # Formatting options
+    width: int = 80
+    max_alerts_per_level: int = 3
+
 
 @dataclass
 class DisplayConfig:
@@ -213,7 +217,7 @@ class DisplayConfig:
                 title="Task Manager Status", show_workers=True, show_alerts=False, show_performance=False
             ),
             "compact": DisplayContextConfig(
-                title="Task Progress", show_workers=False, show_alerts=False, show_performance=False
+                title="Task Manager Status", show_workers=False, show_alerts=False, show_performance=False
             ),
         }
 
@@ -224,6 +228,13 @@ class DisplayConfig:
             ),
             "detailed": DisplayContextConfig(
                 title="Detailed Application Status", show_workers=True, show_alerts=True, show_performance=True
+            ),
+        }
+
+        # Main context
+        self.contexts["main"] = {
+            "standard": DisplayContextConfig(
+                title="Pipeline Status", show_workers=True, show_alerts=False, show_performance=False
             ),
         }
 
@@ -362,14 +373,61 @@ class Config:
     monitoring: MonitoringConfig = field(default_factory=MonitoringConfig)
     display: DisplayConfig = field(default_factory=DisplayConfig)
     persistence: PersistenceConfig = field(default_factory=PersistenceConfig)
-    worker_manager: WorkerManagerConfig = field(default_factory=WorkerManagerConfig)
-    rate_limits: Dict[str, RateLimitConfig] = field(default_factory=dict)
+    worker: WorkerManagerConfig = field(default_factory=WorkerManagerConfig)
+    ratelimits: Dict[str, RateLimitConfig] = field(default_factory=dict)
     tasks: List[TaskConfig] = field(default_factory=list)
 
     def __post_init__(self):
         """Set default rate limits if none provided"""
-        if not self.rate_limits:
-            self.rate_limits = {
+        if not self.ratelimits:
+            self.ratelimits = {
                 "github_api": RateLimitConfig(base_rate=0.15, burst_limit=3, adaptive=True),
                 "github_web": RateLimitConfig(base_rate=0.5, burst_limit=2, adaptive=True),
             }
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert Config object to dictionary
+
+        Returns:
+            Dict[str, Any]: Configuration as dictionary with proper structure
+        """
+        return {
+            "global": self._dataclass_to_dict(self.global_config),
+            "pipeline": self._dataclass_to_dict(self.pipeline),
+            "stats": self._dataclass_to_dict(self.stats),
+            "monitoring": self._dataclass_to_dict(self.monitoring),
+            "display": self._dataclass_to_dict(self.display),
+            "persistence": self._dataclass_to_dict(self.persistence),
+            "worker": self._dataclass_to_dict(self.worker),
+            "ratelimits": {k: self._dataclass_to_dict(v) for k, v in self.ratelimits.items()},
+            "tasks": [self._dataclass_to_dict(task) for task in self.tasks],
+        }
+
+    def _dataclass_to_dict(self, obj: Any) -> Any:
+        """Convert dataclass object to dictionary recursively
+
+        Args:
+            obj: Object to convert (dataclass, dict, list, or primitive)
+
+        Returns:
+            Any: Converted object
+        """
+        if hasattr(obj, "__dataclass_fields__"):
+            # Handle dataclass objects
+            result = {}
+            for field_name in obj.__dataclass_fields__.keys():
+                value = getattr(obj, field_name)
+                result[field_name] = self._dataclass_to_dict(value)
+            return result
+        elif isinstance(obj, dict):
+            # Handle dictionaries
+            return {k: self._dataclass_to_dict(v) for k, v in obj.items()}
+        elif isinstance(obj, (list, tuple)):
+            # Handle lists and tuples
+            return [self._dataclass_to_dict(item) for item in obj]
+        elif hasattr(obj, "value"):
+            # Handle enums
+            return obj.value
+        else:
+            # Handle primitive types
+            return obj

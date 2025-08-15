@@ -58,10 +58,10 @@ class Pipeline(IPipelineBase, StageRegistryMixin, LifecycleManager):
             shutdown_timeout=float(getattr(config.persistence, "shutdown_timeout", 30)),
         )
 
-        self.rate_limiter = RateLimiter(config.rate_limits)
+        self.rate_limiter = RateLimiter(config.ratelimits)
 
         # Initialize GitHub client rate limiter
-        client.init_github_client(config.rate_limits)
+        client.init_github_client(config.ratelimits)
 
         self.queue_manager = QueueManager(
             workspace=config.global_config.workspace,
