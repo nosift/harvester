@@ -9,12 +9,11 @@ import time
 from typing import Dict, List, Optional
 
 from config.schemas import Config
-from constant.runtime import StandardPipelineStage
 from core.auth import configure_auth, get_auth_provider
-from core.enums import SystemState
+from core.enums import StandardPipelineStage, SystemState
 from core.metrics import PipelineStatus
 from core.tasks import ProviderTask
-from core.types import IPipelineBase, IProvider
+from core.types import IPipelineStats, IProvider
 from search import client
 from stage.base import BasePipelineStage, StageOutput, StageResources, StageUtils
 from stage.registry import StageRegistryMixin
@@ -30,7 +29,7 @@ from .queue import QueueManager
 logger = get_logger("manager")
 
 
-class Pipeline(IPipelineBase, StageRegistryMixin, LifecycleManager):
+class Pipeline(IPipelineStats, StageRegistryMixin, LifecycleManager):
     """Dynamic pipeline coordinator with registry-based stage management
 
     Inherits from PipelineBase to provide type-safe statistics interface,
@@ -237,17 +236,17 @@ class Pipeline(IPipelineBase, StageRegistryMixin, LifecycleManager):
 
     def _get_pipeline_status(self) -> PipelineStatus:
         """Get pipeline status as PipelineStatus object (internal use)"""
-        stage_stats = {}
+        stage_status = {}
 
         # Collect stats from all active stages
         for stage_name, stage in self.stages.items():
-            stage_stats[stage_name] = stage.get_stats()
+            stage_status[stage_name] = stage.get_stats()
 
         pipeline_status = PipelineStatus(
             state=SystemState.RUNNING if self.stages else SystemState.STOPPED,
             active=len([s for s in self.stages.values() if s.running]),
             total=len(self.stages),
-            stages=stage_stats,
+            stages=stage_status,
             runtime=time.time() - self.start_time,
         )
 

@@ -230,23 +230,23 @@ class AcquisitionTaskResult:
 class CheckTaskResult:
     """Result from check task execution"""
 
-    valid_keys: List[Service] = field(default_factory=list)
-    invalid_keys: List[Service] = field(default_factory=list)
-    no_quota_keys: List[Service] = field(default_factory=list)
-    wait_check_keys: List[Service] = field(default_factory=list)
+    valid: List[Service] = field(default_factory=list)
+    invalid: List[Service] = field(default_factory=list)
+    no_quota: List[Service] = field(default_factory=list)
+    wait_check: List[Service] = field(default_factory=list)
 
-    def get_total_keys(self) -> int:
+    def count(self) -> int:
         """Get total number of keys processed"""
-        return len(self.valid_keys) + len(self.invalid_keys) + len(self.no_quota_keys) + len(self.wait_check_keys)
+        return len(self.valid) + len(self.invalid) + len(self.no_quota) + len(self.wait_check)
 
     def get_success_rate(self) -> float:
         """Get success rate of key validation"""
-        total = self.get_total_keys()
-        return len(self.valid_keys) / total if total > 0 else 0.0
+        total = self.count()
+        return len(self.valid) / total if total > 0 else 0.0
 
     def get_summary(self) -> str:
         """Get result summary"""
-        return f"Checked {self.get_total_keys()} keys: {len(self.valid_keys)} valid, {len(self.invalid_keys)} invalid"
+        return f"Checked {self.count()} keys: {len(self.valid)} valid, {len(self.invalid)} invalid"
 
 
 @dataclass

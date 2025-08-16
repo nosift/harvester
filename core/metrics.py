@@ -20,7 +20,6 @@ class BaseMetrics:
     """Base class for all metrics to reduce field duplication"""
 
     timestamp: float = field(default_factory=time.time)
-    name: str = ""
 
     def age(self) -> float:
         """Get metrics age in seconds"""
@@ -82,6 +81,7 @@ class TaskMetrics(BaseStats):
 class StageMetrics(BaseMetrics):
     """Stage-level metrics"""
 
+    name: str = ""
     running: bool = False
     disabled: bool = False
 

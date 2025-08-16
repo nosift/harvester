@@ -26,7 +26,7 @@ from stage.base import StageUtils
 from stage.factory import TaskFactory
 from state.builder import StatusBuilder
 from state.models import ProviderStatus, SystemState, SystemStatus
-from state.status import StatusManager
+from state.types import TaskDataProvider
 from storage.recovery import TaskRecoveryStrategy
 from tools.coordinator import get_session, get_token
 from tools.logger import get_logger
@@ -118,24 +118,21 @@ class ProviderFactory:
         return GlobalProviderRegistry.create(provider_type, conditions=conditions, **kwargs)
 
 
-class TaskManager(LifecycleManager):
-    """Main task manager for multi-provider coordination"""
+class TaskManager(LifecycleManager, TaskDataProvider):
+    """Main task manager for multi-provider coordination and data provision"""
 
     def __init__(self, config: Config) -> None:
         # Initialize base class
         super().__init__("TaskManager")
 
         self.config = config
-        self.providers: Dict[str, IProvider] = {}
+        self.providers: Dict[str, IProvider] = dict()
         self.pipeline: Optional[Pipeline] = None
         self.start_time = time.time()
 
         # Cache for provider stages to avoid duplicate construction
-        self._cached_provider_stages = None
+        self._cached_provider_status = None
         self._config_hash = None
-
-        # Status manager for unified status display
-        self._status_manager = None
 
         # Completion event manager
         self.completion_events = CompletionEventManager()
@@ -148,10 +145,10 @@ class TaskManager(LifecycleManager):
 
         logger.info(f"Initialized task manager with {len(self.providers)} providers")
 
-    def _get_provider_stages(self) -> List[ProviderStatus]:
+    def _get_provider_statuses(self) -> List[ProviderStatus]:
         """Get provider status information with caching to avoid duplicate construction"""
         # Create a simple hash of the configuration to detect changes
-        config_str = str(
+        key = str(
             [
                 (
                     task.name,
@@ -164,37 +161,31 @@ class TaskManager(LifecycleManager):
                 for task in self.config.tasks
             ]
         )
-        current_hash = hash(config_str)
+        current_hash = hash(key)
 
         # Return cached result if configuration hasn't changed
-        if self._cached_provider_stages is not None and self._config_hash == current_hash:
-            return self._cached_provider_stages
+        if self._cached_provider_status is not None and self._config_hash == current_hash:
+            return self._cached_provider_status
 
         # Rebuild cache
-        provider_stages = []
-        for task_config in self.config.tasks:
-            if task_config.enabled and task_config.name in self.providers:
+        provider_statuses: List[ProviderStatus] = []
+        for task in self.config.tasks:
+            if task.enabled and task.name in self.providers:
                 provider_status = ProviderStatus(
-                    name=task_config.name,
-                    enabled=task_config.enabled,
-                    searchable=task_config.stages.search,
-                    gatherable=task_config.stages.gather,
-                    checkable=task_config.stages.check,
-                    inspectable=task_config.stages.inspect,
+                    name=task.name,
+                    enabled=task.enabled,
+                    searchable=task.stages.search,
+                    gatherable=task.stages.gather,
+                    checkable=task.stages.check,
+                    inspectable=task.stages.inspect,
                 )
-                provider_stages.append(provider_status)
+                provider_statuses.append(provider_status)
 
         # Update cache
-        self._cached_provider_stages = provider_stages
+        self._cached_provider_status = provider_statuses
         self._config_hash = current_hash
 
-        return provider_stages
-
-    def get_status_manager(self) -> StatusManager:
-        """Get or create status manager instance"""
-        if self._status_manager is None:
-            self._status_manager = StatusManager(task_manager=self)
-        return self._status_manager
+        return provider_statuses
 
     def _initialize_providers(self) -> None:
         """Initialize all enabled providers from configuration"""
@@ -348,8 +339,11 @@ class TaskManager(LifecycleManager):
 
         return finished
 
-    def get_stats(self) -> SystemStatus:
-        """Get current task manager statistics using enhanced StatusBuilder"""
+    def stats(self) -> SystemStatus:
+        """Get current task manager statistics using enhanced StatusBuilder
+
+        Implements TaskDataProvider.stats() interface method.
+        """
 
         # Use StatusBuilder for clean, maintainable status construction
         builder = StatusBuilder()
@@ -372,11 +366,11 @@ class TaskManager(LifecycleManager):
                 builder.with_result_stats(result_stats)
 
         # Set provider stage configurations
-        builder.with_provider_stages(self._get_provider_stages())
+        provider_status = self._get_provider_statuses()
+        builder.with_provider_status(provider_status)
 
         # Set additional compatibility data
         builder.with_additional_data(github_stats=client.get_github_stats())
-
         return builder.build()
 
     def _create_initial_tasks(self) -> List[SearchTask]:

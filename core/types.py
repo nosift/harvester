@@ -8,29 +8,10 @@ used throughout the application for type safety and clear contracts.
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, List, Optional, Protocol
+from typing import List, Optional, Protocol
 
-from .models import Condition
-
-if TYPE_CHECKING:
-    from .metrics import PipelineStatus
-
-
-@dataclass
-class CheckResult:
-    """Result of provider token validation check"""
-
-    valid: bool
-    message: str = ""
-    error_code: Optional[str] = None
-    response_time: float = 0.0
-    model_tested: Optional[str] = None
-
-    @property
-    def is_success(self) -> bool:
-        """Check if validation was successful"""
-        return self.valid and not self.error_code
+from .metrics import PipelineStatus
+from .models import CheckResult, Condition
 
 
 class IAuthProvider(Protocol):
@@ -108,44 +89,21 @@ class IProvider(ABC):
         pass
 
 
-class IPipelineBase(ABC):
-    """Abstract base class for pipeline objects that provide statistics
+class IPipelineStats(Protocol):
+    """Protocol for pipeline statistics providers"""
 
-    This abstract base class defines the interface that pipeline objects must implement
-    to be compatible with StatusBuilder. It provides stronger type safety than Protocol
-    and enables better IDE support and runtime type checking.
-    """
-
-    @abstractmethod
     def get_all_stats(self) -> "PipelineStatus":
         """Get comprehensive pipeline statistics
 
         Returns:
             PipelineStatus: Complete pipeline statistics including all stages
         """
-        pass
+        ...
 
-    @abstractmethod
     def get_dynamic_stats(self) -> "PipelineStatus":
         """Get dynamic pipeline statistics
 
         Returns:
             PipelineStatus: Current dynamic statistics for active stages
         """
-        pass
-
-    def get_stats_summary(self) -> str:
-        """Get a human-readable summary of pipeline statistics
-
-        Returns:
-            str: Summary string with key pipeline metrics
-        """
-        try:
-            stats = self.get_all_stats()
-            active = getattr(stats, "active", 0)
-            total = getattr(stats, "total", 0)
-            state = getattr(stats, "state", None)
-            state_str = getattr(state, "name", str(state)) if state is not None else "unknown"
-            return f"Pipeline: {active}/{total} stages active, state={state_str}"
-        except Exception as e:
-            return f"Pipeline: Error getting statistics - {e}"
+        ...

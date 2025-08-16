@@ -62,25 +62,25 @@ class AIBaseProvider(IProvider):
         self.directory = os.path.join(directory, re.sub(r"[^a-zA-Z0-9_\-]", "-", name, flags=re.I).lower())
 
         # filename for valid keys
-        self.keys_filename = "valid-keys.txt"
+        self.valid = "valid-keys.txt"
 
         # filename for no quota keys
-        self.no_quota_filename = "no-quota-keys.txt"
+        self.no_quota = "no-quota-keys.txt"
 
         # filename for need check again keys
-        self.wait_check_filename = "wait-check-keys.txt"
+        self.wait_check = "wait-check-keys.txt"
 
         # filename for invalid keys
-        self.invalid_keys_filename = "invalid-keys.txt"
+        self.invalid = "invalid-keys.txt"
 
         # filename for extract keys
-        self.material_filename = "material.txt"
+        self.material = "material.txt"
 
         # filename for summary
-        self.summary_filename = "summary.json"
+        self.summary = "summary.json"
 
         # filename for links included keys
-        self.links_filename = "links.txt"
+        self.links = "links.txt"
 
         # base url for llm service api
         self._base_url = base_url

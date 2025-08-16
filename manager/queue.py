@@ -17,7 +17,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Union
 
-from constant.runtime import (
+from core.enums import (
     QueueStateField,
     QueueStateProvider,
     QueueStateStatus,
@@ -25,7 +25,7 @@ from constant.runtime import (
 )
 from core.tasks import ProviderTask
 from stage.factory import TaskFactory
-from state.models import QueueStateMetrics, QueueStatus
+from state.models import QueueStateMetrics
 from storage.atomic import AtomicFileWriter
 from tools.logger import get_logger
 
@@ -375,15 +375,15 @@ class QueueManager(PeriodicTaskManager):
                     # Convert string status to enum
                     if isinstance(status, str):
                         try:
-                            status_enum = QueueStatus(status)
+                            status_enum = QueueStateStatus(status)
                         except ValueError:
-                            status_enum = QueueStatus.UNKNOWN
+                            status_enum = QueueStateStatus.UNKNOWN
                     else:
                         status_enum = status
 
                     metrics = QueueStateMetrics(
                         stage=stage_enum.value,
-                        task_count=task_count,
+                        tasks=task_count,
                         saved_at=saved_at,
                         file_size=filepath.stat().st_size,
                         status=status_enum,
@@ -395,20 +395,20 @@ class QueueManager(PeriodicTaskManager):
                     # Create error metrics
                     info[stage_enum.value] = QueueStateMetrics(
                         stage=stage_enum.value,
-                        task_count=0,
+                        tasks=0,
                         saved_at=datetime.now(),
                         file_size=0,
-                        status=QueueStatus.ERROR,
+                        status=QueueStateStatus.ERROR,
                         error_message=str(e),
                     )
             else:
                 # Create empty metrics
                 info[stage_enum.value] = QueueStateMetrics(
                     stage=stage_enum.value,
-                    task_count=0,
+                    tasks=0,
                     saved_at=datetime.now(),
                     file_size=0,
-                    status=QueueStatus.EMPTY,
+                    status=QueueStateStatus.EMPTY,
                 )
 
         return info
@@ -422,10 +422,10 @@ class QueueManager(PeriodicTaskManager):
                 logger.error(f"Invalid stage name: {stage}")
                 return QueueStateMetrics(
                     stage=stage,
-                    task_count=0,
+                    tasks=0,
                     saved_at=datetime.now(),
                     file_size=0,
-                    status=QueueStatus.ERROR,
+                    status=QueueStateStatus.ERROR,
                     error_message=f"Invalid stage: {stage}",
                 )
         else:
@@ -436,10 +436,10 @@ class QueueManager(PeriodicTaskManager):
             stage_enum.value,
             QueueStateMetrics(
                 stage=stage_enum.value,
-                task_count=0,
+                tasks=0,
                 saved_at=datetime.now(),
                 file_size=0,
-                status=QueueStatus.EMPTY,
+                status=QueueStateStatus.EMPTY,
             ),
         )
 

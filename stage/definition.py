@@ -9,7 +9,6 @@ import math
 import time
 from typing import List, Optional, Tuple
 
-from constant.runtime import StandardPipelineStage
 from constant.search import (
     API_LIMIT,
     API_MAX_PAGES,
@@ -19,7 +18,7 @@ from constant.search import (
     WEB_RESULTS_PER_PAGE,
 )
 from constant.system import SERVICE_TYPE_GITHUB_API, SERVICE_TYPE_GITHUB_WEB
-from core.enums import ErrorReason, ResultType
+from core.enums import ErrorReason, ResultType, StandardPipelineStage
 from core.models import ProviderPatterns, Service
 from core.tasks import AcquisitionTask, CheckTask, InspectTask, ProviderTask, SearchTask
 from core.types import IProvider
@@ -329,7 +328,7 @@ class AcquisitionStage(BasePipelineStage):
                     output.add_task(check_task, StandardPipelineStage.CHECK.value)
 
                 # Add material keys to be saved
-                output.add_result(task.provider, ResultType.MATERIAL_KEYS.value, services)
+                output.add_result(task.provider, ResultType.MATERIAL.value, services)
 
             # Add the processed link to be saved
             output.add_links(task.provider, [task.url])
@@ -409,22 +408,22 @@ class CheckStage(BasePipelineStage):
                 output.add_task(inspect_task, StandardPipelineStage.INSPECT.value)
 
                 # Add valid key to be saved
-                output.add_result(task.provider, ResultType.VALID_KEYS.value, [task.service])
+                output.add_result(task.provider, ResultType.VALID.value, [task.service])
 
             else:
                 # Categorize based on error reason
                 if result.reason == ErrorReason.NO_QUOTA:
-                    output.add_result(task.provider, ResultType.NO_QUOTA_KEYS.value, [task.service])
+                    output.add_result(task.provider, ResultType.NO_QUOTA.value, [task.service])
 
                 elif result.reason in [
                     ErrorReason.RATE_LIMITED,
                     ErrorReason.NO_MODEL,
                     ErrorReason.NO_ACCESS,
                 ]:
-                    output.add_result(task.provider, ResultType.WAIT_CHECK_KEYS.value, [task.service])
+                    output.add_result(task.provider, ResultType.WAIT_CHECK.value, [task.service])
 
                 else:
-                    output.add_result(task.provider, ResultType.INVALID_KEYS.value, [task.service])
+                    output.add_result(task.provider, ResultType.INVALID.value, [task.service])
 
             return output
 

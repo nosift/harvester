@@ -20,7 +20,6 @@ import yaml
 from config import load_config
 from config.defaults import get_default_config
 from config.schemas import Config, WorkerManagerConfig
-from constant.runtime import StandardPipelineStage
 from constant.system import (
     DEFAULT_CONFIG_FILE,
     DEFAULT_SHUTDOWN_TIMEOUT,
@@ -28,22 +27,15 @@ from constant.system import (
     FORCE_EXIT_GRACE_PERIOD,
     SHUTDOWN_MONITOR_INTERVAL,
 )
-from core.enums import SystemState
-from manager.monitor import MultiProviderMonitoring, create_monitoring_system
+from core.enums import StandardPipelineStage, SystemState
 from manager.shutdown import ShutdownCoordinator
+from manager.status import StatusManager
 from manager.task import TaskManager, create_task_manager
 from manager.worker import WorkerManager, create_worker_manager
-from state.models import (
-    ApplicationStatus,
-    DisplayMode,
-    KeyMetrics,
-    PipelineUpdate,
-    QueueMetrics,
-    ResourceMetrics,
-    StatusContext,
-    WorkerMetrics,
-)
-from state.status import StatusManager
+from state.collector import StatusCollector
+from state.enums import DisplayMode, StatusContext
+from state.models import ApplicationStatus, WorkerMetrics
+from state.monitor import ProviderMonitoring, create_monitoring
 from tools.coordinator import init_managers
 from tools.logger import flush_logs, get_logger, init_logging
 from tools.utils import handle_exceptions
@@ -58,8 +50,9 @@ class AsyncPipelineApplication:
         self.config_path = config_path
         self.config: Optional[Config] = None
         self.task_manager: Optional[TaskManager] = None
-        self.monitoring: Optional[MultiProviderMonitoring] = None
+        self.monitoring: Optional[ProviderMonitoring] = None
         self.worker_manager: Optional[WorkerManager] = None
+        self.status_collector: Optional[StatusCollector] = None
         self.status_manager: Optional[StatusManager] = None
 
         # Application state
@@ -100,7 +93,7 @@ class AsyncPipelineApplication:
 
             # Create monitoring system using monitoring config (without status manager yet)
             monitoring_config = self.config.monitoring
-            self.monitoring = create_monitoring_system(monitoring_config)
+            self.monitoring = create_monitoring(monitoring_config)
             logger.info("Monitoring system created")
 
             # Create worker manager only if enabled
@@ -131,18 +124,20 @@ class AsyncPipelineApplication:
                     if stage_instance:
                         self.worker_manager.register_stage(stage.value, stage_instance)
 
-            # Initialize unified status manager
-            self.status_manager = StatusManager(
-                task_manager=self.task_manager, monitoring=self.monitoring, application=self
-            )
-            logger.info("Status manager initialized")
+            # Create status collector with monitoring dependency only
+            self.status_collector = StatusCollector(monitoring=self.monitoring)
+            logger.info("Status collector created")
 
-            # Set status manager in monitoring system for integrated display
-            self.monitoring.set_status_manager(self.status_manager, self.display_style)
-            logger.info(f"Status display integrated into monitoring system with style: {self.display_style}")
+            # Initialize unified status manager as scheduling entry point
+            self.status_manager = StatusManager(
+                collector=self.status_collector,
+                task_provider=self.task_manager,
+                display_interval=DEFAULT_STATS_INTERVAL,
+            )
+            logger.info("Status manager initialized as scheduling entry point")
 
             # Initialize shutdown coordinator
-            components = [self.task_manager, self.monitoring]
+            components = [self.task_manager, self.status_manager]
             if self.worker_manager:
                 components.append(self.worker_manager)
             self.shutdown_coordinator = ShutdownCoordinator(
@@ -152,13 +147,9 @@ class AsyncPipelineApplication:
             )
             logger.info("Shutdown coordinator initialized")
 
-            # Status display is now integrated into monitoring system
-            logger.info("Status display integrated into monitoring system")
-
             # Register completion event listeners
             if self.worker_manager:
                 self.task_manager.add_completion_listener(self.worker_manager._on_task_completion)
-            self.task_manager.add_completion_listener(self.monitoring._on_task_completion)
             logger.info("Completion event listeners registered")
 
             logger.info("Application initialization completed")
@@ -183,8 +174,6 @@ class AsyncPipelineApplication:
             # Start components with error handling
             try:
                 logger.info("Starting application components...")
-                self.monitoring.start()
-                logger.debug("Monitoring started")
 
                 if self.worker_manager:
                     self.worker_manager.start()
@@ -192,6 +181,10 @@ class AsyncPipelineApplication:
 
                 self.task_manager.start()
                 logger.debug("Task manager started")
+
+                # Start status manager as the new scheduling entry point
+                self.status_manager.start()
+                logger.debug("Status manager started as scheduling entry point")
 
             except Exception as e:
                 logger.error(f"Failed to start components: {e}")
@@ -201,7 +194,6 @@ class AsyncPipelineApplication:
 
             # Start coordinated components
             self.shutdown_coordinator.start_completion_monitor()
-            # Status display is now integrated into monitoring system (already started)
 
             # Simplified main loop using shutdown coordinator
             while self.running:
@@ -310,7 +302,7 @@ class AsyncPipelineApplication:
             # Get task manager status
             if self.task_manager:
                 try:
-                    status.task_manager_status = self.task_manager.get_stats()
+                    status.task_manager_status = self.task_manager.stats()
                 except Exception as e:
                     status.task_manager_status = {"error": str(e)}
 
@@ -332,89 +324,13 @@ class AsyncPipelineApplication:
         except Exception:
             raise
 
-    def _update_monitoring_stats(self) -> None:
-        """Update monitoring system with current statistics"""
-        if not self.monitoring or not self.task_manager:
-            return
-
-        try:
-            # Get task manager stats
-            tm_stats = self.task_manager.get_stats()
-
-            # Update provider statistics
-            if tm_stats.result_stats:
-                for provider_name, result_stats in tm_stats.result_stats.items():
-                    key_metrics = KeyMetrics(
-                        valid=result_stats.valid_keys,
-                        invalid=result_stats.invalid_keys,
-                        no_quota=result_stats.no_quota_keys,
-                        wait_check=result_stats.wait_check_keys,
-                    )
-                    resource_metrics = ResourceMetrics(
-                        total_links=result_stats.total_links,
-                        total_models=result_stats.total_models,
-                    )
-
-                    provider_update = type(
-                        "ProviderUpdate",
-                        (),
-                        {
-                            "valid_keys": key_metrics.valid,
-                            "invalid_keys": key_metrics.invalid,
-                            "no_quota_keys": key_metrics.no_quota,
-                            "wait_check_keys": key_metrics.wait_check,
-                            "total_links": resource_metrics.total_links,
-                            "total_models": resource_metrics.total_models,
-                        },
-                    )()
-                    self.monitoring.update_provider_stats(provider_name, provider_update)
-
-            # Update pipeline statistics
-            if tm_stats.pipeline_stats:
-                pipeline_stats = tm_stats.pipeline_stats
-
-                # Get stage stats safely
-                search_stats = pipeline_stats.get_stage_stats(StandardPipelineStage.SEARCH.value)
-                gather_stats = pipeline_stats.get_stage_stats(StandardPipelineStage.GATHER.value)
-                check_stats = pipeline_stats.get_stage_stats(StandardPipelineStage.CHECK.value)
-                inspect_stats = pipeline_stats.get_stage_stats(StandardPipelineStage.INSPECT.value)
-
-                # Calculate total workers
-                total_workers = 0
-                if search_stats:
-                    total_workers += search_stats.workers
-                if gather_stats:
-                    total_workers += gather_stats.workers
-                if check_stats:
-                    total_workers += check_stats.workers
-                if inspect_stats:
-                    total_workers += inspect_stats.workers
-
-                queue_metrics = QueueMetrics(
-                    search=search_stats.queue_size if search_stats else 0,
-                    gather=gather_stats.queue_size if gather_stats else 0,
-                    check=check_stats.queue_size if check_stats else 0,
-                    inspect=inspect_stats.queue_size if inspect_stats else 0,
-                )
-                worker_metrics = WorkerMetrics(
-                    active=total_workers,
-                    total=total_workers,
-                )
-
-                is_finished = self.task_manager.pipeline.is_finished() if self.task_manager.pipeline else False
-                pipeline_update = PipelineUpdate.from_metrics(queue_metrics, worker_metrics, is_finished)
-                self.monitoring.update_pipeline_stats(pipeline_update)
-
-        except Exception as e:
-            logger.debug(f"Error updating monitoring stats: {e}")
-
     def _update_worker_manager_metrics(self) -> None:
         """Update worker manager with current metrics"""
         if not self.worker_manager or not self.task_manager:
             return
 
         try:
-            tm_stats = self.task_manager.get_stats()
+            tm_stats = self.task_manager.stats()
 
             if tm_stats.pipeline_stats:
                 pipeline_stats = tm_stats.pipeline_stats
@@ -425,7 +341,7 @@ class AsyncPipelineApplication:
                     if stage_stats:
 
                         metrics_update = WorkerMetrics(
-                            stage_name=stage.value,
+                            stage=stage.value,
                             queue_size=stage_stats.queue_size,
                             current_workers=stage_stats.workers,
                             processing_rate=stage_stats.processing_rate,
@@ -636,7 +552,7 @@ Examples:
     finally:
         logger.info("Shutting down...")
         try:
-            # Get final status (graceful shutdown already called in app.run())
+            # Get final status
             status = app.get_status()
             logger.info(f"Summary: Runtime {status.runtime:.1f}s")
 

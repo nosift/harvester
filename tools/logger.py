@@ -492,7 +492,7 @@ class Logger:
 
     @staticmethod
     def update_log_levels(log_level: str) -> None:
-        """Update all existing loggers to new log level"""
+        """Update all existing loggers and their handlers to new log level"""
         log_level_str = log_level.lower()
         new_level = LOG_LEVELS.get(log_level_str, logging.INFO)
         Logger._default_level = new_level
@@ -500,6 +500,11 @@ class Logger:
         for _, logger_instance in Logger._loggers.items():
             if logger_instance.level != new_level:
                 logger_instance.setLevel(new_level)
+
+            # Also update all handlers for this logger
+            for handler in logger_instance.handlers:
+                if handler.level != new_level:
+                    handler.setLevel(new_level)
 
     @staticmethod
     def set_default_level(level: str) -> None:
@@ -680,7 +685,7 @@ def init_logging(level: str = "INFO", cleanup_days: int = 7, file_format: str = 
     :param cleanup_days: Number of days to keep old log files (default: 7)
     :param file_format: File log format mode: "text" or "json"
     """
-    Logger.set_default_level(level)
+    Logger.update_log_levels(level)
 
     # Configure file log formatter mode
     set_file_log_format(file_format)

@@ -123,25 +123,113 @@ class ResultType(Enum):
     can collect and persist during processing.
     """
 
-    VALID_KEYS = "valid_keys"
-    NO_QUOTA_KEYS = "no_quota_keys"
-    WAIT_CHECK_KEYS = "wait_check_keys"
-    INVALID_KEYS = "invalid_keys"
-    MATERIAL_KEYS = "material_keys"
+    VALID = "valid"
+    NO_QUOTA = "no_quota"
+    WAIT_CHECK = "wait_check"
+    INVALID = "invalid"
+    MATERIAL = "material"
     LINKS = "links"
     MODELS = "models"
     SUMMARY = "summary"
+    INSPECT = "inspect"
 
-    def get_display_name(self) -> str:
-        """Get human-readable display name"""
-        display_names = {
-            ResultType.VALID_KEYS: "Valid Keys",
-            ResultType.NO_QUOTA_KEYS: "No Quota Keys",
-            ResultType.WAIT_CHECK_KEYS: "Wait Check Keys",
-            ResultType.INVALID_KEYS: "Invalid Keys",
-            ResultType.MATERIAL_KEYS: "Material Keys",
-            ResultType.LINKS: "Links",
-            ResultType.MODELS: "Models",
-            ResultType.SUMMARY: "Summary",
-        }
-        return display_names.get(self, self.value.title())
+
+@unique
+class StandardPipelineStage(Enum):
+    """Pipeline stage names for type safety"""
+
+    SEARCH = "search"
+    GATHER = "gather"
+    CHECK = "check"
+    INSPECT = "inspect"
+
+
+@unique
+class QueueStateProvider(Enum):
+    """Provider type for queue state management"""
+
+    SINGLE = "single"
+    MULTI = "multi"
+
+
+@unique
+class QueueStateStatus(Enum):
+    """Status of queue state for monitoring and management"""
+
+    ACTIVE = "active"
+    EMPTY = "empty"
+    ERROR = "error"
+    ARCHIVED = "archived"
+    STALE = "stale"
+    UNKNOWN = "unknown"
+
+
+@unique
+class QueueOperation(Enum):
+    """Queue operation types for logging and monitoring"""
+
+    SAVE = "save"
+    LOAD = "load"
+    CLEAR = "clear"
+    ARCHIVE = "archive"
+    FLUSH = "flush"
+
+
+@unique
+class QueueStateField(Enum):
+    """Field names for queue state serialization"""
+
+    STAGE = "stage"
+    PROVIDER = "provider"
+    TASK_COUNT = "task_count"
+    SAVED_AT = "saved_at"
+    TASKS = "tasks"
+    STATUS = "status"
+    AGE_HOURS = "age_hours"
+    FILE_SIZE = "file_size"
+    ERROR = "error"
+
+
+@unique
+class WorkerStatsField(Enum):
+    """Worker statistics field names for type safety"""
+
+    CURRENT_WORKERS = "current_workers"
+    TARGET_WORKERS = "target_workers"
+    QUEUE_SIZE = "queue_size"
+    UTILIZATION = "utilization"
+    PROCESSING_RATE = "processing_rate"
+    LAST_ADJUSTMENT = "last_adjustment"
+
+
+@unique
+class CacheKeyType(Enum):
+    """Cache key types for type-safe cache operations"""
+
+    SYSTEM_STATUS = "system_status"
+    PROVIDER_STATUS = "provider_status"
+    PIPELINE_STATUS = "pipeline_status"
+    MONITORING_SUMMARY = "monitoring_summary"
+    MONITORING_SNAPSHOT = "monitoring_snapshot"
+
+
+@unique
+class AlertKeyType(Enum):
+    """Alert key types for alert deduplication"""
+
+    PERFORMANCE = "performance"
+    SYSTEM = "system"
+    PROVIDER = "provider"
+    PIPELINE = "pipeline"
+    RESOURCE = "resource"
+
+
+@unique
+class ErrorType(Enum):
+    """Error types for structured error handling"""
+
+    DATA_COLLECTION_ERROR = "DATA_COLLECTION_ERROR"
+    PIPELINE_ERROR = "PIPELINE_ERROR"
+    PROVIDER_ERROR = "PROVIDER_ERROR"
+    CACHE_ERROR = "CACHE_ERROR"
+    VALIDATION_ERROR = "VALIDATION_ERROR"

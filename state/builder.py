@@ -36,24 +36,15 @@ Usage Examples:
 import time
 from typing import Any, Dict, List, Optional
 
-from core.enums import SystemState
+from core.enums import ErrorType, SystemState
 from core.metrics import TaskMetrics
-from core.types import IPipelineBase, IProvider
+from core.types import IPipelineStats, IProvider
 from tools.logger import get_logger
 
 from .collector import StatusCollector
-from .mapper import FieldMapper
-from .models import (
-    PerformanceMetrics,
-    PersistenceMetrics,
-    ProviderState,
-    ProviderStatus,
-    SystemStatus,
-)
-
-# Type aliases for better readability
-ProviderDict = Dict[str, IProvider]
-ResultStatsDict = Dict[str, PersistenceMetrics]
+from .enums import ProviderState
+from .models import PerformanceMetrics, PersistenceMetrics, ProviderStatus, SystemStatus
+from .types import ICollectorWithAlerts
 
 
 # Custom exceptions for better error handling
@@ -87,32 +78,27 @@ logger = get_logger("state")
 class StatusBuilder:
     """Builder pattern for constructing SystemStatus objects with dependency injection"""
 
-    def __init__(self, collector: Optional[StatusCollector] = None, mapper: Optional[FieldMapper] = None):
+    def __init__(self, collector: Optional[StatusCollector] = None):
         """Initialize builder with dependency injection
 
         Args:
             collector: StatusCollector instance for pipeline data collection
-            mapper: FieldMapper instance for field mapping operations
         """
-        self.collector = collector or StatusCollector()
-        self.mapper = mapper or FieldMapper()
+        self.collector = collector  # StatusCollector now requires monitoring parameter
         self.status = SystemStatus()
         self._built = False  # Track if build() has been called
 
     @classmethod
-    def create(
-        cls, collector: Optional[StatusCollector] = None, mapper: Optional[FieldMapper] = None
-    ) -> "StatusBuilder":
+    def create(cls, collector: Optional[StatusCollector] = None) -> "StatusBuilder":
         """Factory method to create a new StatusBuilder instance
 
         Args:
             collector: Optional StatusCollector instance
-            mapper: Optional FieldMapper instance
 
         Returns:
             New StatusBuilder instance
         """
-        return cls(collector, mapper)
+        return cls(collector)
 
     @classmethod
     def quick(cls) -> "StatusBuilder":
@@ -143,10 +129,10 @@ class StatusBuilder:
         error_msg = f"Failed to {operation}: {error.__class__.__name__}: {error}"
         logger.error(error_msg)
 
-        # Add error alert to status if collector is available
-        if hasattr(self.collector, "_add_error_alert"):
+        # Add error alert to status if collector supports alerts
+        if isinstance(self.collector, ICollectorWithAlerts):
             try:
-                self.collector._add_error_alert(self.status, "DATA_COLLECTION_ERROR", error)
+                self.collector._add_error_alert(self.status, ErrorType.DATA_COLLECTION_ERROR.value, error)
             except Exception as alert_error:
                 logger.warning(f"Failed to add error alert: {alert_error}")
 
@@ -229,11 +215,11 @@ class StatusBuilder:
         )
         return self
 
-    def with_pipeline_stats(self, pipeline: IPipelineBase) -> "StatusBuilder":
+    def with_pipeline_stats(self, pipeline: IPipelineStats) -> "StatusBuilder":
         """Set pipeline statistics using collector
 
         Args:
-            pipeline: Pipeline object that inherits from PipelineBase
+            pipeline: Pipeline object implementing IPipelineBase interface
 
         Returns:
             Self for method chaining
@@ -245,26 +231,22 @@ class StatusBuilder:
 
         if pipeline:
             try:
-                if hasattr(pipeline, "get_all_stats"):
+                # Try primary stats method first
+                try:
                     pipeline_stats = pipeline.get_all_stats()
-                    logger.debug(f"Got pipeline stats: {type(pipeline_stats)}")
-
-                    # Use collector to gather pipeline data
-                    self.collector._collect_pipeline_data(self.status, pipeline_stats)
-                elif hasattr(pipeline, "get_dynamic_stats"):
+                    self.status.pipeline = pipeline_stats
+                except AttributeError:
                     # Fallback to dynamic stats method
                     pipeline_stats = pipeline.get_dynamic_stats()
                     logger.debug(f"Got dynamic pipeline stats: {type(pipeline_stats)}")
-                    self.collector._collect_pipeline_data(self.status, pipeline_stats)
-                else:
-                    logger.debug(f"Pipeline object has no stats methods: {type(pipeline)}")
+                    self.status.pipeline = pipeline_stats
 
             except Exception as e:
                 self._handle_collection_error("collect pipeline statistics", e)
 
         return self
 
-    def with_result_stats(self, result_stats: ResultStatsDict) -> "StatusBuilder":
+    def with_result_stats(self, result_stats: Dict[str, PersistenceMetrics]) -> "StatusBuilder":
         """Set result statistics using direct field mapping
 
         Args:
@@ -284,45 +266,46 @@ class StatusBuilder:
 
         return self
 
-    def _update_system_level_metrics(self, result_stats: ResultStatsDict) -> None:
+    def _update_system_level_metrics(self, result_stats: Dict[str, PersistenceMetrics]) -> None:
         """Update system-level aggregated metrics
 
         Args:
             result_stats: Dictionary of provider statistics
         """
         try:
-            key_metrics = self.mapper.aggregate_key_metrics(result_stats)
-            resource_metrics = self.mapper.aggregate_resource_metrics(result_stats)
+            self._update_provider_level_metrics(result_stats)
+            self.status.calculate_overall_metrics()
 
-            self.status.keys = key_metrics
-            self.status.resources = resource_metrics
-
-            logger.debug(f"Updated system metrics: keys={key_metrics.total}, resources={resource_metrics.total}")
+            logger.debug(
+                f"Updated system metrics: keys={self.status.resource.total}, links={self.status.resource.links}"
+            )
         except Exception as e:
             self._handle_collection_error("update system-level metrics", e)
 
-    def _update_provider_level_metrics(self, result_stats: ResultStatsDict) -> None:
+    def _update_provider_level_metrics(self, result_stats: Dict[str, PersistenceMetrics]) -> None:
         """Update individual provider metrics
 
         Args:
             result_stats: Dictionary of provider statistics
         """
-        for provider_name, stats in result_stats.items():
+        for name, stats in result_stats.items():
+            if not stats or not isinstance(stats, PersistenceMetrics):
+                logger.warning(f"Skip update provider {name} due to invalid metrics: {stats}")
+                continue
+
             try:
-                if provider_name in self.status.providers:
-                    provider_status = self.status.providers[provider_name]
-                    # Use FieldMapper for consistent field mapping
-                    provider_status.keys = self.mapper.map_to_key_metrics(stats)
-                    provider_status.resources = self.mapper.map_to_resource_metrics(stats)
+                if name in self.status.providers:
+                    provider_status = self.status.providers[name]
+                    provider_status.resource = stats.resource
                     logger.debug(
-                        f"Updated provider {provider_name} metrics: valid={provider_status.keys.valid}, links={provider_status.resources.links}"
+                        f"Updated provider {name} metrics: valid={provider_status.resource.valid}, links={provider_status.resource.links}"
                     )
                 else:
-                    logger.warning(f"Provider {provider_name} not found in status.providers, skipping metrics update")
+                    logger.warning(f"Provider {name} not found in status.providers, skipping metrics update")
             except Exception as e:
-                self._handle_collection_error(f"update metrics for provider {provider_name}", e)
+                self._handle_collection_error(f"update metrics for provider {name}", e)
 
-    def with_providers_info(self, providers: ProviderDict) -> "StatusBuilder":
+    def with_providers_info(self, providers: Dict[str, IProvider]) -> "StatusBuilder":
         """Set providers information
 
         Args:
@@ -331,19 +314,19 @@ class StatusBuilder:
         Returns:
             Self for method chaining
         """
-        # Convert provider objects to ProviderStatus objects
+
         if providers:
-            for provider_name in providers.keys():
-                provider_status = self._create_provider_status(provider_name)
-                self.status.providers[provider_name] = provider_status
+            for name in providers.keys():
+                status = self._create_provider_status(name)
+                self.status.providers[name] = status
 
         return self
 
-    def with_provider_stages(self, provider_stages: List[Any]) -> "StatusBuilder":
+    def with_provider_status(self, provider_statuses: List[ProviderStatus]) -> "StatusBuilder":
         """Set provider stage configurations
 
         Args:
-            provider_stages: List of provider stage configuration objects
+            stages: List of provider stage configuration objects
 
         Returns:
             Self for method chaining
@@ -353,15 +336,18 @@ class StatusBuilder:
         """
         self._ensure_not_built()
 
-        if provider_stages:
-            self._update_provider_stages(provider_stages)
+        logger.debug(
+            f"StatusBuilder.with_provider_stages called with {len(provider_statuses) if provider_statuses else 0} stages"
+        )
+        if provider_statuses:
+            self._update_provider_status(provider_statuses)
         return self
 
-    def with_custom_field(self, field_name: str, value: Any) -> "StatusBuilder":
+    def with_custom_field(self, field: str, value: Any) -> "StatusBuilder":
         """Set a custom field on the status object
 
         Args:
-            field_name: Name of the field to set
+            field: Name of the field to set
             value: Value to set
 
         Returns:
@@ -373,11 +359,11 @@ class StatusBuilder:
         """
         self._ensure_not_built()
 
-        if not hasattr(self.status, field_name):
-            raise InvalidParameterError(f"Status object has no field '{field_name}'")
+        if not hasattr(self.status, field):
+            raise InvalidParameterError(f"Status object has no field '{field}'")
 
-        setattr(self.status, field_name, value)
-        logger.debug(f"Set custom field {field_name} = {value}")
+        setattr(self.status, field, value)
+        logger.debug(f"Set custom field {field} = {value}")
         return self
 
     def with_additional_data(self, **kwargs) -> "StatusBuilder":
@@ -394,48 +380,47 @@ class StatusBuilder:
         """
         self._ensure_not_built()
 
-        for field_name, value in kwargs.items():
+        for field, value in kwargs.items():
             try:
-                if hasattr(self.status, field_name):
-                    setattr(self.status, field_name, value)
-                    logger.debug(f"Set additional field {field_name} = {value}")
+                if hasattr(self.status, field):
+                    setattr(self.status, field, value)
+                    logger.debug(f"Set additional field {field} = {value}")
                 else:
-                    logger.debug(f"Skipping unknown field {field_name}")
+                    logger.debug(f"Skipping unknown field {field}")
             except Exception as e:
-                logger.warning(f"Failed to set additional field {field_name}: {e}")
+                logger.warning(f"Failed to set additional field {field}: {e}")
 
         return self
 
-    def _create_provider_status(self, provider_name: str, enabled: bool = True) -> Any:
+    def _create_provider_status(self, name: str, enabled: bool = True) -> ProviderStatus:
         """Create a ProviderStatus object with default values
 
         Args:
-            provider_name: Name of the provider
+            name: Name of the provider
             enabled: Whether the provider is enabled
 
         Returns:
             ProviderStatus: Configured provider status object
         """
         return ProviderStatus(
-            name=provider_name,
+            name=name,
             enabled=enabled,
             state=ProviderState.ACTIVE if enabled else ProviderState.DISABLED,
         )
 
-    def _update_provider_stages(self, provider_stages) -> None:
+    def _update_provider_status(self, provider_statuses: List[ProviderStatus]) -> None:
         """Update provider stage configurations"""
         try:
-            for stage_info in provider_stages:
-                provider_name = stage_info.name
-                if provider_name in self.status.providers:
-                    provider_status = self.status.providers[provider_name]
+            for provider_status in provider_statuses:
+                if provider_status.name in self.status.providers:
+                    ps = self.status.providers[provider_status.name]
                     # Update stage configuration
-                    provider_status.searchable = stage_info.searchable
-                    provider_status.gatherable = stage_info.gatherable
-                    provider_status.checkable = stage_info.checkable
-                    provider_status.inspectable = stage_info.inspectable
+                    ps.searchable = provider_status.searchable
+                    ps.gatherable = provider_status.gatherable
+                    ps.checkable = provider_status.checkable
+                    ps.inspectable = provider_status.inspectable
                     logger.debug(
-                        f"Updated provider {provider_name} stages: S={provider_status.searchable}, G={provider_status.gatherable}, V={provider_status.checkable}, I={provider_status.inspectable}"
+                        f"Updated provider {provider_status.name} stages: S={ps.searchable}, G={ps.gatherable}, V={ps.checkable}, I={ps.inspectable}"
                     )
         except Exception as e:
             self._handle_collection_error("update provider stages", e)
@@ -453,11 +438,10 @@ class StatusBuilder:
             raise BuilderAlreadyBuiltError("build() can only be called once per StatusBuilder instance")
 
         # Calculate derived metrics if needed
-        if hasattr(self.status, "calculate_overall_metrics"):
-            try:
-                self.status.calculate_overall_metrics()
-            except Exception as e:
-                logger.warning(f"Failed to calculate derived metrics: {e}")
+        try:
+            self.status.calculate_overall_metrics()
+        except Exception as e:
+            logger.warning(f"Failed to calculate derived metrics: {e}")
 
         self._built = True
         return self.status

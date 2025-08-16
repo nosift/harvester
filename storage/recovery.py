@@ -9,7 +9,7 @@ stage management and configuration-driven approach.
 
 from typing import Any, Dict, List, Optional
 
-from constant.runtime import StandardPipelineStage
+from core.enums import StandardPipelineStage
 from core.models import AllRecoveredTasks, ProviderPatterns, RecoveredTasks
 from stage.factory import TaskFactory
 from tools.logger import get_logger

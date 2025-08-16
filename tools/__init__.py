@@ -30,7 +30,7 @@ from .coordinator import (
     update_user_agents,
 )
 from .credential import Credentials
-from .logger import Logger
+from .logger import Logger, get_logger
 
 # Regex patterns for performance
 from .patterns import (
@@ -89,6 +89,7 @@ __all__ = [
     "Credentials",
     # Logging
     "Logger",
+    "get_logger",
     # Rate limiting
     "AsyncRateLimiter",
     "RateLimiter",

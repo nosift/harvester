@@ -13,7 +13,8 @@ from config import get_config
 from config.schemas import DisplayContextConfig
 from tools.logger import get_logger
 
-from .models import AlertLevel, DisplayMode, StatusContext, SystemStatus
+from .enums import AlertLevel, DisplayMode, StatusContext
+from .models import SystemStatus
 
 logger = get_logger("state")
 
@@ -104,7 +105,7 @@ class StatusDisplayEngine:
 
     def _render_compact(self, status: SystemStatus, config: DisplayContextConfig) -> None:
         """Render compact single-line format"""
-        lines = []
+        lines: List[str] = []
 
         # Compact header
         width = config.width
@@ -114,17 +115,17 @@ class StatusDisplayEngine:
 
         # Compact pipeline info
         if status.has_pipeline_data():
-            queue_total = status.queues.total_queued
-            lines.append(f"Queues: {queue_total} | Runtime: {status.runtime:.1f}s")
+            size = status.pipeline.queue_size()
+            lines.append(f"Queues: {size} | Runtime: {status.runtime:.1f}s")
 
         # Compact provider info
         if status.has_provider_data():
-            for provider_name, provider in status.providers.items():
+            for name, provider in status.providers.items():
                 abbrev = provider.abbreviations()  # Updated method name
                 lines.append(
-                    f"{provider_name:>10} [{abbrev}]: "
-                    f"valid={provider.keys.valid:>3}, "
-                    f"links={provider.resources.links:>4}"
+                    f"{name:>10} [{abbrev}]: "
+                    f"valid={provider.resource.valid:>3}, "
+                    f"links={provider.resource.links:>4}"
                 )
 
         lines.append("=" * width)
@@ -135,7 +136,7 @@ class StatusDisplayEngine:
 
     def _render_summary(self, status: SystemStatus, config: DisplayContextConfig) -> None:
         """Render brief summary format"""
-        lines = []
+        lines: List[str] = []
 
         # Summary header
         width = config.width
@@ -151,8 +152,8 @@ class StatusDisplayEngine:
                 f"Tasks: {status.tasks.completed}/{status.tasks.total} " f"({status.tasks.success_rate:.1%} success)"
             )
 
-        if status.keys.total > 0:
-            lines.append(f"Keys: {status.keys.valid} valid, {status.keys.total} total")
+        if status.resource.total > 0:
+            lines.append(f"Keys: {status.resource.valid} valid, {status.resource.total} total")
 
         # Active providers summary - updated method name
         active_providers = status.active_providers()
@@ -168,22 +169,13 @@ class StatusDisplayEngine:
 
     def _render_standard(self, status: SystemStatus, config: DisplayContextConfig) -> None:
         """Render standard multi-line format"""
-        lines = []
+        lines: List[str] = []
 
         # Standard header
         width = config.width
         lines.append("=" * width)
         lines.append(f"{config.title:^{width}}")
         lines.append("=" * width)
-
-        # Debug logging for troubleshooting
-        logger.debug(f"Rendering standard display - Title: {config.title}")
-        logger.debug(
-            f"Pipeline data available: {status.has_pipeline_data()}, stages: {len(status.pipeline.stages) if status.pipeline else 0}"
-        )
-        logger.debug(
-            f"Provider data available: {status.has_provider_data()}, providers: {len(status.providers) if status.providers else 0}"
-        )
 
         # Pipeline section
         if status.has_pipeline_data():
@@ -220,7 +212,7 @@ class StatusDisplayEngine:
 
     def _render_monitoring(self, status: SystemStatus, config: DisplayContextConfig) -> None:
         """Render monitoring-specific format with performance data"""
-        lines = []
+        lines: List[str] = []
 
         # Monitoring header with performance summary
         width = config.width
@@ -237,8 +229,8 @@ class StatusDisplayEngine:
 
         if config.show_workers:
             lines.append(
-                f"Workers: {status.workers.active}/{status.workers.total} active | "
-                f"Queues: {status.queues.total_queued} total"
+                f"Workers: {status.worker.active}/{status.worker.total} active | "
+                f"Queues: {status.pipeline.queue_size()} total"
             )
 
         lines.append("-" * width)
@@ -282,7 +274,7 @@ class StatusDisplayEngine:
         self._render_standard(status, detailed_config)
 
         # Add extra detailed sections
-        lines = []
+        lines: List[str] = []
 
         # System health section
         width = config.width
@@ -293,8 +285,8 @@ class StatusDisplayEngine:
         lines.append(f"  Critical Alerts: {len(status.critical_alerts())}")
 
         # Resource utilization
-        if status.workers.total > 0:
-            lines.append(f"  Worker Utilization: {status.workers.utilization:.1%}")
+        if status.worker.total > 0:
+            lines.append(f"  Worker Utilization: {status.worker.utilization:.1%}")
 
         lines.append("=" * width)
 
@@ -305,7 +297,7 @@ class StatusDisplayEngine:
     def _render_fallback(self, status: SystemStatus) -> None:
         """Render fallback display when main rendering fails"""
         width = 60  # Use fixed width for fallback
-        lines = [
+        lines: List[str] = [
             "=" * width,
             f"{'Status':^{width}}",
             "=" * width,
@@ -320,7 +312,7 @@ class StatusDisplayEngine:
 
     def _format_pipeline_section(self, status: SystemStatus, config: DisplayContextConfig) -> List[str]:
         """Format pipeline section with table-like layout"""
-        lines = []
+        lines: List[str] = []
 
         if not status.pipeline.stages:
             lines.append("No pipeline data available")
@@ -332,22 +324,26 @@ class StatusDisplayEngine:
             lines.append("-" * config.width)
 
         # Table rows
-        for stage_name, stage_metrics in status.pipeline.stages.items():
-            queue_size = getattr(stage_metrics, "queue_size", 0)
-            processed = getattr(stage_metrics, "total_processed", 0)
-            errors = getattr(stage_metrics, "total_errors", 0)
-            workers = getattr(stage_metrics, "workers", 0)
+        for name, metrics in status.pipeline.stages.items():
+            if not name or not metrics:
+                logger.debug(f"Ignore inviliad stage metrics data, stage: {name}, metrics: {metrics}")
+                continue
+
+            queue_size = metrics.queue_size
+            processed = metrics.total_processed
+            errors = metrics.total_errors
+            workers = metrics.workers
 
             if config.show_workers:
-                lines.append(f"{stage_name:<10} | {queue_size:<8} | {processed:<10} | {errors:<8} | {workers:<8}")
+                lines.append(f"{name:<10} | {queue_size:<8} | {processed:<10} | {errors:<8} | {workers:<8}")
             else:
-                lines.append(f"{stage_name:>10}: queue={queue_size:<4}, processed={processed:<6}, errors={errors}")
+                lines.append(f"{name:>10}: queue={queue_size:<4}, processed={processed:<6}, errors={errors}")
 
         return lines
 
     def _format_provider_section(self, status: SystemStatus) -> List[str]:
         """Format provider section with table-like layout"""
-        lines = []
+        lines: List[str] = []
 
         if not status.providers:
             lines.append("No provider data available")
@@ -360,12 +356,12 @@ class StatusDisplayEngine:
         lines.append("-" * 80)  # Fixed width for provider table
 
         # Table rows
-        for provider_name, provider in status.providers.items():
+        for name, provider in status.providers.items():
             abbrev = provider.abbreviations()
             lines.append(
-                f"{provider_name:<12} | {provider.keys.valid:<6} | "
-                f"{provider.keys.no_quota:<9} | {provider.keys.wait_check:<6} | "
-                f"{provider.keys.invalid:<8} | {provider.resources.links:<6} | "
+                f"{name:<12} | {provider.resource.valid:<6} | "
+                f"{provider.resource.no_quota:<9} | {provider.resource.wait_check:<6} | "
+                f"{provider.resource.invalid:<8} | {provider.resource.links:<6} | "
                 f"{abbrev:<10}"
             )
 
@@ -373,17 +369,17 @@ class StatusDisplayEngine:
 
     def _format_provider_monitoring_section(self, status: SystemStatus) -> List[str]:
         """Format provider section with monitoring metrics"""
-        lines = []
+        lines: List[str] = []
 
-        for provider_name, provider in status.providers.items():
+        for name, provider in status.providers.items():
             abbrev = provider.abbreviations()
-            success_rate = provider.keys.success_rate * 100
+            success_rate = provider.resource.success_rate * 100
 
             lines.append(
-                f"{provider_name:<12} [{abbrev:>8}] | "
-                f"Valid: {provider.keys.valid:>4} | "
+                f"{name:<12} [{abbrev:>8}] | "
+                f"Valid: {provider.resource.valid:>4} | "
                 f"Rate: {success_rate:>5.1f}% | "
-                f"Links: {provider.resources.links:>5} | "
+                f"Links: {provider.resource.links:>5} | "
                 f"API: {provider.success_rate:.1%}"
             )
 
@@ -391,7 +387,7 @@ class StatusDisplayEngine:
 
     def _format_performance_section(self, status: SystemStatus) -> List[str]:
         """Format performance metrics section"""
-        lines = [
+        lines: List[str] = [
             "Performance Metrics:",
             f"  Throughput: {status.performance.throughput:.2f} tasks/sec",
             f"  Success Rate: {status.performance.success_rate:.1%}",
@@ -405,7 +401,7 @@ class StatusDisplayEngine:
 
     def _format_alerts_section(self, status: SystemStatus, config: DisplayContextConfig) -> List[str]:
         """Format alerts section"""
-        lines = ["Alerts:"]
+        lines: List[str] = ["Alerts:"]
 
         # Group alerts by level
         critical_alerts = [a for a in status.alerts if a.level == AlertLevel.CRITICAL]

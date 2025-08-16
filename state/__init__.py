@@ -21,10 +21,13 @@ Key Features:
 - Comprehensive caching and performance optimization
 
 Usage:
-    from monitor import StatusManager, DisplayMode, StatusContext
+    from manager.status import StatusManager
+    from state.collector import StatusCollector
+    from state.models import DisplayMode, StatusContext
 
-    # Create status manager
-    status_manager = StatusManager(task_manager, monitoring, application)
+    # Create status collector and manager
+    collector = StatusCollector(monitoring=monitoring)
+    status_manager = StatusManager(collector=collector, task_provider=task_manager)
 
     # Display status (single entry point)
     status_manager.show_status(StatusContext.MONITORING, DisplayMode.DETAILED)
@@ -33,48 +36,34 @@ Usage:
 from .builder import StatusBuilder
 from .collector import StatusCollector
 from .display import StatusDisplayEngine, get_display_config
-from .mapper import FieldMapper
+from .enums import AlertLevel, DisplayMode, ProviderState, StatusContext
 from .models import (
     Alert,
-    AlertLevel,
-    AlertType,
     ApplicationStatus,
-    DisplayMode,
-    KeyMetrics,
+    BaseKeyStats,
+    IMonitorProvider,
     MonitoringSnapshot,
     MonitoringSummary,
     PerformanceMetrics,
     PersistenceMetrics,
-    PipelineUpdate,
-    ProviderState,
     ProviderStatus,
-    QueueMetrics,
     QueueStateMetrics,
-    ResourceMetrics,
-    StatsTotals,
-    StatusContext,
     SystemStatus,
     WorkerMetrics,
 )
-from .status import StatusManager
 
 # Public API
 __all__ = [
-    # Main entry point
-    "StatusManager",
     # Core data models
     "MonitoringSnapshot",
     "MonitoringSummary",
     "get_display_config",
-    "StatsTotals",
-    "PipelineUpdate",
     "ProviderState",
     # Alert system
     "Alert",
-    "AlertType",
+    "AlertKeyType",
     "AlertLevel",
     # Enums
-    "SystemState",
     "DisplayMode",
     "StatusContext",
     # Components
@@ -82,15 +71,13 @@ __all__ = [
     "StatusDisplayEngine",
     # Enhanced statistics tools
     "StatusBuilder",
-    "FieldMapper",
     "ApplicationStatus",
-    "KeyMetrics",
+    "BaseKeyStats",
+    "IMonitorProvider",
     "PerformanceMetrics",
     "PersistenceMetrics",
     "ProviderStatus",
-    "QueueMetrics",
     "QueueStateMetrics",
-    "ResourceMetrics",
     "SystemStatus",
     "WorkerMetrics",
 ]

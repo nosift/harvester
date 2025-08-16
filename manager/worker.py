@@ -14,7 +14,6 @@ from dataclasses import dataclass
 from typing import Any, Dict, Optional, Protocol, Tuple, Union, runtime_checkable
 
 from config.schemas import WorkerManagerConfig
-from constant.runtime import StandardPipelineStage
 from constant.system import (
     DEFAULT_ADJUSTMENT_INTERVAL,
     DEFAULT_MAX_WORKERS,
@@ -24,6 +23,7 @@ from constant.system import (
     DEFAULT_TARGET_QUEUE_SIZE,
     LB_RECENT_HISTORY_SIZE,
 )
+from core.enums import StandardPipelineStage
 from state.models import WorkerMetrics
 from tools.logger import get_logger
 
@@ -206,7 +206,7 @@ class WorkerManager(ConditionalTaskManager):
         """
         with self.lock:
             self.stages[stage_name] = stage_instance
-            self.worker_metrics[stage_name] = WorkerMetrics(stage_name=stage_name)
+            self.worker_metrics[stage_name] = WorkerMetrics(stage=stage_name)
             self.metrics_history[stage_name] = deque(maxlen=50)
 
         logger.info(f"Registered stage for worker management: {stage_name}")
@@ -277,7 +277,7 @@ class WorkerManager(ConditionalTaskManager):
             # Create snapshot to avoid holding lock during calculation
             metrics = self.worker_metrics[stage_name]
             snapshot = WorkerMetrics(
-                stage_name=metrics.stage_name,
+                stage=metrics.stage,
                 current_workers=metrics.current_workers,
                 queue_size=metrics.queue_size,
                 processing_rate=metrics.processing_rate,
@@ -300,7 +300,7 @@ class WorkerManager(ConditionalTaskManager):
         target_workers = self.scaling_strategy.calculate_target(metrics)
 
         # Apply trend analysis
-        target_workers = self._apply_trend_analysis(metrics.stage_name, target_workers)
+        target_workers = self._apply_trend_analysis(metrics.stage, target_workers)
 
         return target_workers
 
@@ -319,7 +319,7 @@ class WorkerManager(ConditionalTaskManager):
 
             # Create snapshot for calculation without nested lock
             snapshot = WorkerMetrics(
-                stage_name=metrics.stage_name,
+                stage=metrics.stage,
                 current_workers=metrics.current_workers,
                 queue_size=metrics.queue_size,
                 processing_rate=metrics.processing_rate,
@@ -346,7 +346,7 @@ class WorkerManager(ConditionalTaskManager):
 
             # Create snapshot for calculation
             snapshot = WorkerMetrics(
-                stage_name=metrics.stage_name,
+                stage=metrics.stage,
                 current_workers=metrics.current_workers,
                 queue_size=metrics.queue_size,
                 processing_rate=metrics.processing_rate,
@@ -600,7 +600,7 @@ if __name__ == "__main__":
 
                 # Create metrics update using WorkerMetrics structure
                 metrics_update = WorkerMetrics(
-                    stage_name=stage.value,
+                    stage=stage.value,
                     queue_size=queue_size,
                     current_workers=manager.worker_metrics[stage.value].current_workers,
                     processing_rate=random.uniform(0.5, 5.0),

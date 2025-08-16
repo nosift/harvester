@@ -15,7 +15,7 @@ import time
 from collections import deque
 from typing import Any, Dict, List, Optional
 
-from constant.runtime import RESULT_TYPE_MAPPINGS
+from constant.runtime import RESULT_MAPPINGS
 from core.enums import ResultType
 from core.models import AllRecoveredTasks, RecoveredTasks, Service
 from core.types import IProvider
@@ -114,9 +114,9 @@ class ResultManager:
         os.makedirs(self.directory, exist_ok=True)
 
         # Build file paths from provider instance using configuration mapping
-        self.files = {}
-        for result_type, config in RESULT_TYPE_MAPPINGS.items():
-            filename = getattr(provider, config.filename_attr)
+        self.files = dict()
+        for result_type, mapping in RESULT_MAPPINGS.items():
+            filename = getattr(provider, mapping.filename)
             self.files[result_type.value] = os.path.join(self.directory, filename)
 
         # Result buffers
@@ -181,11 +181,11 @@ class ResultManager:
         """Update statistics for given result type using configuration mapping"""
         with self.lock:
             # Find matching result type configuration
-            for rt_enum, config in RESULT_TYPE_MAPPINGS.items():
-                if rt_enum.value == result_type and config.stats_attr:
+            for rt, mapping in RESULT_MAPPINGS.items():
+                if rt.value == result_type and mapping.stats:
                     # Update the corresponding statistics attribute
-                    current_value = getattr(self.stats, config.stats_attr, 0)
-                    setattr(self.stats, config.stats_attr, current_value + count)
+                    current = getattr(self.stats.resource, mapping.stats, 0)
+                    setattr(self.stats.resource, mapping.stats, current + count)
                     break
 
     def add_links(self, links: List[str]):
@@ -204,7 +204,7 @@ class ResultManager:
         """Add model list for a key (not buffered, saved immediately)"""
         with self.lock:
             self.models_data[key] = {"models": models, "timestamp": time.time()}
-            self.stats.resources.models += 1
+            self.stats.resource.models += 1
 
         # Save models data immediately
         self._save_models()
@@ -731,9 +731,9 @@ if __name__ == "__main__":
         manager = ResultManager(mock_provider, workspace, batch_size=3, save_interval=1)
 
         # Add some results
-        manager.add_result(ResultType.VALID_KEYS.value, ["key1", "key2"])
+        manager.add_result(ResultType.VALID.value, ["key1", "key2"])
         manager.add_links(["http://example.com/1", "http://example.com/2"])
-        manager.add_result(ResultType.VALID_KEYS.value, "key3")  # Should trigger flush
+        manager.add_result(ResultType.VALID.value, "key3")  # Should trigger flush
 
         # Wait for periodic flush
         time.sleep(2)
@@ -747,7 +747,7 @@ if __name__ == "__main__":
 
         # Get stats
         stats = manager.get_stats()
-        logger.info(f"Stats: valid_keys={stats.valid_keys}, links={stats.total_links}")
+        logger.info(f"Stats: valid_keys={stats.valid}, links={stats.resource.links}")
 
         # Stop manager
         manager.stop()
