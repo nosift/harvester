@@ -150,6 +150,8 @@ class AsyncPipelineApplication:
             # Register completion event listeners
             if self.worker_manager:
                 self.task_manager.add_completion_listener(self.worker_manager._on_task_completion)
+
+            self.task_manager.add_completion_listener(self.status_manager._on_task_completion)
             logger.info("Completion event listeners registered")
 
             logger.info("Application initialization completed")

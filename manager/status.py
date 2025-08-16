@@ -151,6 +151,11 @@ class StatusManager(PeriodicTaskManager):
         status = self.collector.status(refresh=False)
         return status.critical_alerts()
 
+    def _on_task_completion(self) -> None:
+        """Handle task completion event from task provider"""
+        logger.info("Received task completion event, marking StatusManager as finished")
+        self.mark_finished()
+
     def clear_cache(self) -> None:
         """Clear all cached data"""
         self.collector.clear_cache()
