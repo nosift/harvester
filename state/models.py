@@ -457,9 +457,9 @@ class SystemStatus(BaseMetrics):
     def healthy(self) -> bool:
         """Check if system is in healthy state"""
         return (
-            self.state == SystemState.RUNNING
+            self.state in (SystemState.RUNNING, SystemState.STOPPED)
             and not self.critical_alerts()
-            and self.performance.error_rate < 0.1  # Less than 10% error rate
+            and self.performance.error_rate < 0.1
         )
 
 

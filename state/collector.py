@@ -12,7 +12,7 @@ from collections import OrderedDict
 from typing import Any, Dict, Optional
 
 from constant.monitoring import COLLECTOR_CACHE_KEYS, COLLECTOR_CACHE_TTL, CacheConfig
-from core.enums import CacheKeyType
+from core.enums import CacheKeyType, SystemState
 from tools.logger import get_logger
 
 from .models import CacheStats, IMonitorProvider, SystemStatus
@@ -104,6 +104,9 @@ class StatusCollector(IStatusCollector):
                 status.pipeline = snapshot.pipeline
             if snapshot.providers:
                 status.providers.update(snapshot.providers)
+
+            # Set system state
+            status.state = SystemState.RUNNING
 
             logger.debug(f"Fresh status collected - tasks: {summary.tasks}, providers: {len(snapshot.providers)}")
 
