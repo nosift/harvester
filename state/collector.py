@@ -11,8 +11,8 @@ import time
 from collections import OrderedDict
 from typing import Any, Dict, Optional
 
-from constant.monitoring import COLLECTOR_CACHE_KEYS, COLLECTOR_CACHE_TTL, CacheConfig
-from core.enums import CacheKeyType, SystemState
+from constant.monitoring import COLLECTOR_CACHE_TTL, CacheConfig
+from core.enums import SystemState
 from tools.logger import get_logger
 
 from .models import CacheStats, IMonitorProvider, SystemStatus
@@ -56,7 +56,7 @@ class StatusCollector(IStatusCollector):
         Returns:
             SystemStatus: Complete system status aggregated from monitoring
         """
-        cache_key = COLLECTOR_CACHE_KEYS.get("SYSTEM_STATUS", CacheKeyType.SYSTEM_STATUS.value)
+        cache_key = "system_status"
 
         # Try to get from cache first
         if not refresh and self._is_cache_valid(cache_key):

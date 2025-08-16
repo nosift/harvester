@@ -53,15 +53,10 @@ class DisplayConfig:
     TASK_PROVIDER_AVAILABLE: Final[str] = "  Task Provider: Available"
     TASK_PROVIDER_NOT_AVAILABLE: Final[str] = "  Task Provider: Not available"
 
+
 # Collector cache configuration
 COLLECTOR_CACHE_TTL: float = 300.0  # 5 minutes cache TTL
 
-COLLECTOR_CACHE_KEYS: Dict[str, str] = {
-    "SYSTEM_STATUS": "sys_status",
-    "PIPELINE_DATA": "pipeline_data",
-    "PROVIDER_DATA": "provider_data",
-    "APPLICATION_STATUS": "app_status",
-}
 
 MONITORING_THRESHOLDS: Dict[str, float] = {
     "error_rate": 0.1,

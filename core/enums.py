@@ -191,29 +191,6 @@ class QueueStateField(Enum):
 
 
 @unique
-class WorkerStatsField(Enum):
-    """Worker statistics field names for type safety"""
-
-    CURRENT_WORKERS = "current_workers"
-    TARGET_WORKERS = "target_workers"
-    QUEUE_SIZE = "queue_size"
-    UTILIZATION = "utilization"
-    PROCESSING_RATE = "processing_rate"
-    LAST_ADJUSTMENT = "last_adjustment"
-
-
-@unique
-class CacheKeyType(Enum):
-    """Cache key types for type-safe cache operations"""
-
-    SYSTEM_STATUS = "system_status"
-    PROVIDER_STATUS = "provider_status"
-    PIPELINE_STATUS = "pipeline_status"
-    MONITORING_SUMMARY = "monitoring_summary"
-    MONITORING_SNAPSHOT = "monitoring_snapshot"
-
-
-@unique
 class AlertKeyType(Enum):
     """Alert key types for alert deduplication"""
 

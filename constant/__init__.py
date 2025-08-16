@@ -15,7 +15,6 @@ Key Features:
 
 # State monitoring configuration
 from .monitoring import (
-    COLLECTOR_CACHE_KEYS,
     COLLECTOR_CACHE_TTL,
     MONITORING_THRESHOLDS,
     AlertConfig,
@@ -159,7 +158,6 @@ __all__ = [
     "WEB_LIMIT",
     "ALLOWED_OPERATORS",
     # Monitoring configuration
-    "COLLECTOR_CACHE_KEYS",
     "COLLECTOR_CACHE_TTL",
     "MONITORING_THRESHOLDS",
     # Type constants and enums
