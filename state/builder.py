@@ -413,8 +413,8 @@ class StatusBuilder:
         try:
             for provider_status in provider_statuses:
                 if provider_status.name in self.status.providers:
+                    # Update existing provider
                     ps = self.status.providers[provider_status.name]
-                    # Update stage configuration
                     ps.searchable = provider_status.searchable
                     ps.gatherable = provider_status.gatherable
                     ps.checkable = provider_status.checkable
@@ -422,6 +422,10 @@ class StatusBuilder:
                     logger.debug(
                         f"Updated provider {provider_status.name} stages: S={ps.searchable}, G={ps.gatherable}, V={ps.checkable}, I={ps.inspectable}"
                     )
+                else:
+                    # Create new provider if it doesn't exist
+                    logger.debug(f"Creating new provider status for {provider_status.name}")
+                    self.status.providers[provider_status.name] = provider_status
         except Exception as e:
             self._handle_collection_error("update provider stages", e)
 

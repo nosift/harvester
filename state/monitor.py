@@ -8,6 +8,7 @@ Pure data aggregation and caching without scheduling dependencies.
 import threading
 import time
 from collections import OrderedDict, deque
+from types import MappingProxyType
 from typing import Callable, Dict, List, Optional
 
 from config.schemas import MonitoringConfig
@@ -22,6 +23,7 @@ from .models import (
     IMonitorProvider,
     MonitoringSnapshot,
     MonitoringSummary,
+    PerformanceMetrics,
     PipelineStatus,
     ProviderStatus,
     SystemStatus,
@@ -218,7 +220,27 @@ class ProviderMonitoring(IMonitorProvider):
     def snapshot(self) -> MonitoringSnapshot:
         """Get current statistics snapshot"""
         with self.lock:
-            return MonitoringSnapshot.create_from_monitoring(self)
+            # Create snapshot directly with collected data to avoid deadlock
+            summary = PerformanceMetrics()
+            runtime = self.runtime()
+            provider_status = self.provider_status.copy()
+            pipeline_status = self.pipeline_status
+
+            # Calculate summary metrics from provider stats
+            tasks = sum(p.calls for p in provider_status.values())
+            errors = sum(p.errors for p in provider_status.values())
+
+            summary.tasks_per_second = tasks / max(runtime, 1)
+            summary.error_rate = errors / max(tasks, 1)
+            summary.success_rate = 1.0 - summary.error_rate
+            providers_readonly = MappingProxyType(provider_status)
+
+            return MonitoringSnapshot(
+                runtime=runtime,
+                pipeline=pipeline_status,
+                providers=providers_readonly,
+                summary=summary,
+            )
 
     def summary(self) -> MonitoringSummary:
         """Get summarized statistics as strong-typed object"""
