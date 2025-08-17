@@ -102,7 +102,7 @@ class AIBaseProvider(IProvider):
 
         items = set()
         for condition in conditions:
-            if not isinstance(condition, Condition) or not condition.regex or not condition.enabled:
+            if not isinstance(condition, Condition) or not condition.patterns.key_pattern or not condition.enabled:
                 logger.warning(f"Invalid condition: {condition}, skipping it")
                 continue
 

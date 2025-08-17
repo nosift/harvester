@@ -10,7 +10,7 @@ from typing import Dict, List, Optional
 
 from config.schemas import Config
 from core.auth import configure_auth, get_auth_provider
-from core.enums import StandardPipelineStage, SystemState
+from core.enums import PipelineStage, SystemState
 from core.metrics import PipelineStatus
 from core.tasks import ProviderTask
 from core.types import IPipelineStats, IProvider
@@ -260,7 +260,7 @@ class Pipeline(IPipelineStats, StageRegistryMixin, LifecycleManager):
         """Add initial search tasks to pipeline"""
         self.initial_tasks_count = len(initial_tasks)
 
-        search_stage = self.stages.get(StandardPipelineStage.SEARCH.value)
+        search_stage = self.stages.get(PipelineStage.SEARCH.value)
         if search_stage:
             for task in initial_tasks:
                 search_stage.put_task(task)

@@ -23,7 +23,7 @@ from constant.system import (
     DEFAULT_TARGET_QUEUE_SIZE,
     LB_RECENT_HISTORY_SIZE,
 )
-from core.enums import StandardPipelineStage
+from core.enums import PipelineStage
 from state.models import WorkerMetrics
 from tools.logger import get_logger
 
@@ -579,7 +579,7 @@ if __name__ == "__main__":
             return True
 
     # Register mock stages
-    for stage in StandardPipelineStage:
+    for stage in PipelineStage:
         manager.register_stage(stage.value, MockStage(stage.value))
 
     manager.start()
@@ -587,13 +587,13 @@ if __name__ == "__main__":
     try:
         # Simulate varying load
         for i in range(20):
-            for stage in StandardPipelineStage:
+            for stage in PipelineStage:
                 # Simulate different load patterns
-                if stage == StandardPipelineStage.SEARCH:
+                if stage == PipelineStage.SEARCH:
                     queue_size = random.randint(0, 50)
-                elif stage == StandardPipelineStage.GATHER:
+                elif stage == PipelineStage.GATHER:
                     queue_size = random.randint(10, 100)
-                elif stage == StandardPipelineStage.CHECK:
+                elif stage == PipelineStage.CHECK:
                     queue_size = random.randint(50, 200)
                 else:  # models
                     queue_size = random.randint(0, 20)

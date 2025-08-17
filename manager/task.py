@@ -15,8 +15,7 @@ from typing import Any, Callable, Dict, List, Optional, Set
 import constant
 from config import load_config
 from config.schemas import Config, TaskConfig
-from constant.system import PATTERN_KEY
-from core.models import Condition, ProviderPatterns, TaskRecoveryInfo
+from core.models import Condition, Patterns, TaskRecoveryInfo
 from core.tasks import ProviderTask, SearchTask
 from core.types import IProvider
 from search import client
@@ -78,14 +77,6 @@ class CompletionEventManager:
         """Check if completion has been notified"""
         with self._lock:
             return self._completion_notified
-
-
-@dataclass
-class ConditionConfig:
-    """Configuration for a single condition"""
-
-    query: str = ""
-    pattern: str = ""
 
 
 class ProviderFactory:
@@ -195,8 +186,8 @@ class TaskManager(LifecycleManager, TaskDataProvider):
                 continue
 
             try:
-                # Parse conditions with flexible regex support
-                conditions = self._parse_conditions(task_config)
+                # Use conditions directly from config (already parsed and validated)
+                conditions = [c for c in task_config.conditions if c.is_valid()]
 
                 if not conditions:
                     logger.warning(f"No valid conditions for provider {task_config.name}, skipping")
@@ -220,37 +211,6 @@ class TaskManager(LifecycleManager, TaskDataProvider):
 
         if not self.providers:
             raise ValueError("No valid providers configured")
-
-    def _parse_conditions(self, task: TaskConfig) -> List[Condition]:
-        """Parse flexible condition configuration from task config
-
-        Args:
-            task: Task configuration containing conditions and patterns
-
-        Returns:
-            List[Condition]: List of parsed condition objects
-        """
-        conditions: List[Condition] = []
-        global_pattern = task.patterns.key_pattern
-
-        for condition_data in task.conditions:
-            # Convert dict to typed config
-            config = self._parse_condition_config(condition_data, global_pattern)
-
-            if config.pattern:  # pattern is required, query is optional
-                conditions.append(Condition(regex=config.pattern, query=config.query))
-            else:
-                logger.warning(f"Invalid condition (missing regex pattern): {condition_data}")
-
-        return conditions
-
-    def _parse_condition_config(self, condition_data: Dict[str, Any], global_pattern: str) -> ConditionConfig:
-        """Parse condition data into typed config"""
-        query = condition_data.get("query", "")
-        # Use condition-specific pattern if provided, otherwise use global pattern
-        pattern = condition_data.get(PATTERN_KEY, global_pattern)
-
-        return ConditionConfig(query=query, pattern=pattern)
 
     def _create_pipeline(self) -> None:
         """Create pipeline with all components"""
@@ -406,18 +366,16 @@ class TaskManager(LifecycleManager, TaskDataProvider):
                 continue
 
             for condition in provider.conditions:
-                # Create search task for each condition
+                # Create search task for each condition using its patterns
                 task = TaskFactory.create_search_task(
                     provider=task_config.name,
-                    query=condition.query or condition.regex,
-                    regex=condition.regex,
+                    query=condition.query or condition.patterns.key_pattern,
+                    regex=condition.patterns.key_pattern,
                     page=1,
                     use_api=task_config.use_api,
-                    address_pattern=task_config.patterns.address_pattern
-                    or provider.extras.get(constant.PATTERN_ADDRESS, ""),
-                    endpoint_pattern=task_config.patterns.endpoint_pattern
-                    or provider.extras.get(constant.PATTERN_ENDPOINT, ""),
-                    model_pattern=task_config.patterns.model_pattern or provider.extras.get(constant.PATTERN_MODEL, ""),
+                    address_pattern=condition.patterns.address_pattern,
+                    endpoint_pattern=condition.patterns.endpoint_pattern,
+                    model_pattern=condition.patterns.model_pattern,
                 )
                 tasks.append(task)
 
@@ -446,15 +404,13 @@ class TaskManager(LifecycleManager, TaskDataProvider):
         # Recover result tasks using enhanced strategy
         recovery_strategy.recover_result_tasks(recovery_info.result_tasks)
 
-    def _get_provider_patterns(self, provider: AIBaseProvider) -> ProviderPatterns:
+    def _get_provider_patterns(self, provider: AIBaseProvider) -> Patterns:
         """Extract patterns from provider conditions"""
-        patterns = ProviderPatterns()
-
-        # Use first condition's regex as key pattern
+        # Use first condition's patterns if available
         if provider.conditions:
-            patterns.key_pattern = provider.conditions[0].regex
+            return provider.conditions[0].patterns
 
-        return patterns
+        return Patterns()
 
     def _filter_recovery(self, recovered: Dict[str, List[ProviderTask]]) -> Dict[str, List[ProviderTask]]:
         """Filter recovered tasks based on stage configuration"""

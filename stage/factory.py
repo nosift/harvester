@@ -7,13 +7,8 @@ Provides factory methods for creating tasks from configuration and serialized da
 
 from typing import Any, Dict, Union
 
-from constant.system import (
-    PATTERN_ADDRESS,
-    PATTERN_ENDPOINT,
-    PATTERN_KEY,
-    PATTERN_MODEL,
-)
-from core.models import ProviderPatterns, Service
+from config.schemas import Patterns
+from core.models import Service
 from core.tasks import AcquisitionTask, CheckTask, InspectTask, ProviderTask, SearchTask
 from tools.logger import get_logger
 
@@ -47,11 +42,9 @@ class TaskFactory:
         )
 
     @staticmethod
-    def create_acquisition_task(
-        provider: str, url: str, patterns: Union[Dict[str, str], ProviderPatterns]
-    ) -> AcquisitionTask:
+    def create_acquisition_task(provider: str, url: str, patterns: Union[Dict[str, str], Patterns]) -> AcquisitionTask:
         """Create an acquisition task with extraction patterns"""
-        if isinstance(patterns, ProviderPatterns):
+        if isinstance(patterns, Patterns):
             return AcquisitionTask(
                 provider=provider,
                 url=url,
@@ -61,14 +54,13 @@ class TaskFactory:
                 model_pattern=patterns.model_pattern,
             )
         else:
-            # Legacy dict support
             return AcquisitionTask(
                 provider=provider,
                 url=url,
-                key_pattern=patterns.get(PATTERN_KEY, ""),
-                address_pattern=patterns.get(PATTERN_ADDRESS, ""),
-                endpoint_pattern=patterns.get(PATTERN_ENDPOINT, ""),
-                model_pattern=patterns.get(PATTERN_MODEL, ""),
+                key_pattern=patterns.get("key_pattern", ""),
+                address_pattern=patterns.get("address_pattern", ""),
+                endpoint_pattern=patterns.get("endpoint_pattern", ""),
+                model_pattern=patterns.get("model_pattern", ""),
             )
 
     @staticmethod

@@ -18,7 +18,7 @@ from typing import Any, Dict
 
 import yaml
 
-from core.models import RateLimitConfig
+from core.models import Condition, Patterns, RateLimitConfig, inherit_patterns
 
 from .defaults import get_default_config
 from .schemas import (
@@ -30,7 +30,6 @@ from .schemas import (
     GlobalConfig,
     LoadBalanceStrategy,
     MonitoringConfig,
-    Patterns,
     PersistenceConfig,
     PipelineConfig,
     StageConfig,
@@ -336,6 +335,15 @@ class ConfigLoader:
             model_pattern=patterns_data.get("model_pattern", ""),
         )
 
+        # Parse conditions
+        conditions_data = data.get("conditions", [])
+        conditions = []
+        for condition_data in conditions_data:
+            condition = Condition.from_dict(condition_data)
+            # Inherit global patterns if condition patterns are empty
+            inherit_patterns(patterns, condition)
+            conditions.append(condition)
+
         # Parse rate limit
         rate_limit_data = data.get("rate_limit", {})
         rate_limit = RateLimitConfig(
@@ -353,7 +361,7 @@ class ConfigLoader:
             extras=data.get("extras", {}),
             api=api,
             patterns=patterns,
-            conditions=data.get("conditions", []),
+            conditions=conditions,
             rate_limit=rate_limit,
         )
 

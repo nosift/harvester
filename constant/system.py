@@ -98,11 +98,6 @@ DEFAULT_QUESTION: str = "Hello"
 # Error handling
 NO_RETRY_ERROR_CODES: Set[int] = {400, 401, 402, 404, 422}
 
-# Pattern keys
-PATTERN_KEY: str = "key_pattern"
-PATTERN_ADDRESS: str = "address_pattern"
-PATTERN_ENDPOINT: str = "endpoint_pattern"
-PATTERN_MODEL: str = "model_pattern"
 
 # Service types
 SERVICE_TYPE_GITHUB_API: str = "github_api"

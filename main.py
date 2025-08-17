@@ -27,7 +27,7 @@ from constant.system import (
     FORCE_EXIT_GRACE_PERIOD,
     SHUTDOWN_MONITOR_INTERVAL,
 )
-from core.enums import StandardPipelineStage, SystemState
+from core.enums import PipelineStage, SystemState
 from manager.shutdown import ShutdownCoordinator
 from manager.status import StatusManager
 from manager.task import TaskManager, create_task_manager
@@ -119,7 +119,7 @@ class AsyncPipelineApplication:
             # Register pipeline stages with worker manager (if enabled)
             if self.worker_manager and self.task_manager.pipeline:
                 pipeline = self.task_manager.pipeline
-                for stage in StandardPipelineStage:
+                for stage in PipelineStage:
                     stage_instance = pipeline.get_stage(stage.value)
                     if stage_instance:
                         self.worker_manager.register_stage(stage.value, stage_instance)
@@ -338,7 +338,7 @@ class AsyncPipelineApplication:
                 pipeline_stats = tm_stats.pipeline_stats
 
                 # Update metrics for each stage that exists
-                for stage in StandardPipelineStage:
+                for stage in PipelineStage:
                     stage_stats = pipeline_stats.get_stage_stats(stage.value)
                     if stage_stats:
 

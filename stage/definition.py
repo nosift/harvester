@@ -9,6 +9,7 @@ import math
 import time
 from typing import List, Optional, Tuple
 
+from config.schemas import Patterns
 from constant.search import (
     API_LIMIT,
     API_MAX_PAGES,
@@ -18,8 +19,8 @@ from constant.search import (
     WEB_RESULTS_PER_PAGE,
 )
 from constant.system import SERVICE_TYPE_GITHUB_API, SERVICE_TYPE_GITHUB_WEB
-from core.enums import ErrorReason, ResultType, StandardPipelineStage
-from core.models import ProviderPatterns, Service
+from core.enums import ErrorReason, PipelineStage, ResultType
+from core.models import Service
 from core.tasks import AcquisitionTask, CheckTask, InspectTask, ProviderTask, SearchTask
 from core.types import IProvider
 from refine.engine import RefineEngine
@@ -35,20 +36,20 @@ logger = get_logger("stage")
 
 
 @register_stage(
-    name=StandardPipelineStage.SEARCH.value,
+    name=PipelineStage.SEARCH.value,
     depends_on=[],
-    produces_for=[StandardPipelineStage.GATHER.value, StandardPipelineStage.CHECK.value],
+    produces_for=[PipelineStage.GATHER.value, PipelineStage.CHECK.value],
     description="Search GitHub for potential API keys",
 )
 class SearchStage(BasePipelineStage):
     """Pipeline stage for searching GitHub with pure functional processing"""
 
     def __init__(self, resources: StageResources, handler: OutputHandler, **kwargs):
-        super().__init__(StandardPipelineStage.SEARCH.value, resources, handler, **kwargs)
+        super().__init__(PipelineStage.SEARCH.value, resources, handler, **kwargs)
 
     def _generate_id(self, task: ProviderTask) -> str:
         """Generate unique task identifier for deduplication"""
-        return f"{StandardPipelineStage.SEARCH.value}:{task.provider}:{getattr(task, 'query', '')}:{getattr(task, 'page', 1)}:{getattr(task, 'regex', '')}"
+        return f"{PipelineStage.SEARCH.value}:{task.provider}:{getattr(task, 'query', '')}:{getattr(task, 'page', 1)}:{getattr(task, 'regex', '')}"
 
     def _validate_task_type(self, task: ProviderTask) -> bool:
         """Validate that task is a SearchTask."""
@@ -92,7 +93,7 @@ class SearchStage(BasePipelineStage):
                 keys = self._extract_keys_from_content(content, task)
                 for key_service in keys:
                     check_task = TaskFactory.create_check_task(task.provider, key_service)
-                    output.add_task(check_task, StandardPipelineStage.CHECK.value)
+                    output.add_task(check_task, PipelineStage.CHECK.value)
 
                 if keys:
                     logger.info(
@@ -101,7 +102,7 @@ class SearchStage(BasePipelineStage):
 
             # Create acquisition tasks for links
             if results:
-                patterns = ProviderPatterns(
+                patterns = Patterns(
                     key_pattern=task.regex,
                     address_pattern=task.address_pattern,
                     endpoint_pattern=task.endpoint_pattern,
@@ -109,7 +110,7 @@ class SearchStage(BasePipelineStage):
                 )
                 for link in results:
                     acquisition_task = TaskFactory.create_acquisition_task(task.provider, link, patterns)
-                    output.add_task(acquisition_task, StandardPipelineStage.GATHER.value)
+                    output.add_task(acquisition_task, PipelineStage.GATHER.value)
 
                 # Add links to be saved
                 output.add_links(task.provider, results)
@@ -228,7 +229,7 @@ class SearchStage(BasePipelineStage):
                     model_pattern=task.model_pattern,
                 )
 
-                output.add_task(refined_task, StandardPipelineStage.SEARCH.value)
+                output.add_task(refined_task, PipelineStage.SEARCH.value)
 
             logger.info(
                 f"[{self.name}] generated {len(queries)} refined tasks for provider: {task.provider}, query: {task.query}"
@@ -238,7 +239,7 @@ class SearchStage(BasePipelineStage):
         elif total > per_page:
             page_tasks = self._generate_page_tasks(task, total, per_page)
             for page_task in page_tasks:
-                output.add_task(page_task, StandardPipelineStage.SEARCH.value)
+                output.add_task(page_task, PipelineStage.SEARCH.value)
             logger.info(
                 f"[{self.name}] generated {len(page_tasks)} page tasks for provider: {task.provider}, query: {task.query}"
             )
@@ -282,20 +283,20 @@ class SearchStage(BasePipelineStage):
 
 
 @register_stage(
-    name=StandardPipelineStage.GATHER.value,
-    depends_on=[StandardPipelineStage.SEARCH.value],
-    produces_for=[StandardPipelineStage.CHECK.value],
+    name=PipelineStage.GATHER.value,
+    depends_on=[PipelineStage.SEARCH.value],
+    produces_for=[PipelineStage.CHECK.value],
     description="Gather keys from discovered URLs",
 )
 class AcquisitionStage(BasePipelineStage):
     """Pipeline stage for acquiring keys from URLs with pure functional processing"""
 
     def __init__(self, resources: StageResources, handler: OutputHandler, **kwargs):
-        super().__init__(StandardPipelineStage.GATHER.value, resources, handler, **kwargs)
+        super().__init__(PipelineStage.GATHER.value, resources, handler, **kwargs)
 
     def _generate_id(self, task: ProviderTask) -> str:
         """Generate unique task identifier for deduplication"""
-        return f"{StandardPipelineStage.GATHER.value}:{task.provider}:{getattr(task, 'url', '')}"
+        return f"{PipelineStage.GATHER.value}:{task.provider}:{getattr(task, 'url', '')}"
 
     def _validate_task_type(self, task: ProviderTask) -> bool:
         """Validate that task is an AcquisitionTask."""
@@ -325,7 +326,7 @@ class AcquisitionStage(BasePipelineStage):
             if services:
                 for service in services:
                     check_task = TaskFactory.create_check_task(task.provider, service)
-                    output.add_task(check_task, StandardPipelineStage.CHECK.value)
+                    output.add_task(check_task, PipelineStage.CHECK.value)
 
                 # Add material keys to be saved
                 output.add_result(task.provider, ResultType.MATERIAL.value, services)
@@ -341,24 +342,24 @@ class AcquisitionStage(BasePipelineStage):
 
 
 @register_stage(
-    name=StandardPipelineStage.CHECK.value,
+    name=PipelineStage.CHECK.value,
     depends_on=[],
-    produces_for=[StandardPipelineStage.INSPECT.value],
+    produces_for=[PipelineStage.INSPECT.value],
     description="Validate API keys",
 )
 class CheckStage(BasePipelineStage):
     """Pipeline stage for validating API keys with pure functional processing"""
 
     def __init__(self, resources: StageResources, handler: OutputHandler, **kwargs):
-        super().__init__(StandardPipelineStage.CHECK.value, resources, handler, **kwargs)
+        super().__init__(PipelineStage.CHECK.value, resources, handler, **kwargs)
 
     def _generate_id(self, task: ProviderTask) -> str:
         """Generate unique task identifier for deduplication"""
         service = getattr(task, "service", None)
         if service:
-            return f"{StandardPipelineStage.CHECK.value}:{task.provider}:{service.key}:{service.address}:{service.endpoint}"
+            return f"{PipelineStage.CHECK.value}:{task.provider}:{service.key}:{service.address}:{service.endpoint}"
 
-        return f"{StandardPipelineStage.CHECK.value}:{task.provider}:unknown"
+        return f"{PipelineStage.CHECK.value}:{task.provider}:unknown"
 
     def _validate_task_type(self, task: ProviderTask) -> bool:
         """Validate that task is a CheckTask."""
@@ -405,7 +406,7 @@ class CheckStage(BasePipelineStage):
             if result.available:
                 # Create inspect task
                 inspect_task = TaskFactory.create_inspect_task(task.provider, task.service)
-                output.add_task(inspect_task, StandardPipelineStage.INSPECT.value)
+                output.add_task(inspect_task, PipelineStage.INSPECT.value)
 
                 # Add valid key to be saved
                 output.add_result(task.provider, ResultType.VALID.value, [task.service])
@@ -436,7 +437,7 @@ class CheckStage(BasePipelineStage):
 
 
 @register_stage(
-    name=StandardPipelineStage.INSPECT.value,
+    name=PipelineStage.INSPECT.value,
     depends_on=[],
     produces_for=[],
     description="Inspect API capabilities for validated keys",
@@ -445,15 +446,15 @@ class InspectStage(BasePipelineStage):
     """Pipeline stage for inspecting API capabilities with pure functional processing"""
 
     def __init__(self, resources: StageResources, handler: OutputHandler, **kwargs):
-        super().__init__(StandardPipelineStage.INSPECT.value, resources, handler, **kwargs)
+        super().__init__(PipelineStage.INSPECT.value, resources, handler, **kwargs)
 
     def _generate_id(self, task: ProviderTask) -> str:
         """Generate unique task identifier for deduplication"""
         service = getattr(task, "service", None)
         if service:
-            return f"{StandardPipelineStage.INSPECT.value}:{task.provider}:{service.key}:{service.address}"
+            return f"{PipelineStage.INSPECT.value}:{task.provider}:{service.key}:{service.address}"
 
-        return f"{StandardPipelineStage.INSPECT.value}:{task.provider}:unknown"
+        return f"{PipelineStage.INSPECT.value}:{task.provider}:unknown"
 
     def _validate_task_type(self, task: ProviderTask) -> bool:
         """Validate that task is an InspectTask."""

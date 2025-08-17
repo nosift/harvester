@@ -18,10 +18,10 @@ from pathlib import Path
 from typing import Any, Dict, List, Union
 
 from core.enums import (
+    PipelineStage,
     QueueStateField,
     QueueStateProvider,
     QueueStateStatus,
-    StandardPipelineStage,
 )
 from core.tasks import ProviderTask
 from stage.factory import TaskFactory
@@ -50,19 +50,19 @@ class QueueConfig:
             self.persistence_dir = Path(self.persistence_dir)
         self.persistence_dir.mkdir(parents=True, exist_ok=True)
 
-    def get_queue_file_path(self, stage: StandardPipelineStage) -> Path:
+    def get_queue_file_path(self, stage: PipelineStage) -> Path:
         """Get file path for specific stage queue"""
         filename = f"{stage.value}_queue.json"
         return self.persistence_dir / filename
 
-    def get_backup_path(self, stage: StandardPipelineStage, backup_index: int) -> Path:
+    def get_backup_path(self, stage: PipelineStage, backup_index: int) -> Path:
         """Get backup file path for specific stage"""
         filename = f"{stage.value}_queue.backup.{backup_index}.json"
         return self.persistence_dir / filename
 
-    def get_all_stage_files(self) -> Dict[StandardPipelineStage, Path]:
+    def get_all_stage_files(self) -> Dict[PipelineStage, Path]:
         """Get all stage file paths as dictionary"""
-        return {stage: self.get_queue_file_path(stage) for stage in StandardPipelineStage}
+        return {stage: self.get_queue_file_path(stage) for stage in PipelineStage}
 
     @classmethod
     def from_workspace(cls, workspace: str, **kwargs) -> "QueueConfig":
@@ -75,7 +75,7 @@ class QueueConfig:
 class QueueStateInfo:
     """Type-safe state information for task queue persistence"""
 
-    stage: StandardPipelineStage
+    stage: PipelineStage
     provider: QueueStateProvider
     task_count: int = 0
     saved_at: datetime = None
@@ -112,7 +112,7 @@ class QueueStateInfo:
             saved_at = datetime.now()
 
         return cls(
-            stage=StandardPipelineStage(data[QueueStateField.STAGE.value]),
+            stage=PipelineStage(data[QueueStateField.STAGE.value]),
             provider=QueueStateProvider(data[QueueStateField.PROVIDER.value]),
             task_count=data[QueueStateField.TASK_COUNT.value],
             saved_at=saved_at,
@@ -142,12 +142,12 @@ class QueueManager(PeriodicTaskManager):
 
         logger.info(f"Initialized type-safe queue manager at: {self.config.persistence_dir}")
 
-    def _get_queue_filepath(self, stage: Union[StandardPipelineStage, str]) -> Path:
+    def _get_queue_filepath(self, stage: Union[PipelineStage, str]) -> Path:
         """Get filepath for a stage with type-safe enum support"""
         if isinstance(stage, str):
             # Legacy string support - convert to enum
             try:
-                stage_enum = StandardPipelineStage(stage)
+                stage_enum = PipelineStage(stage)
                 return self.stage_files[stage_enum]
             except ValueError:
                 # Dynamic stage name fallback
@@ -161,12 +161,12 @@ class QueueManager(PeriodicTaskManager):
         self.stages = stages
         self.start()  # Use base class start method
 
-    def save_queue_state(self, stage: Union[StandardPipelineStage, str], task_list: List[ProviderTask]) -> None:
+    def save_queue_state(self, stage: Union[PipelineStage, str], task_list: List[ProviderTask]) -> None:
         """Type-safe save queue state for a specific stage"""
         # Convert string to enum for type safety
         if isinstance(stage, str):
             try:
-                stage_enum = StandardPipelineStage(stage)
+                stage_enum = PipelineStage(stage)
             except ValueError:
                 logger.error(f"Invalid stage name: {stage}")
                 return
@@ -211,12 +211,12 @@ class QueueManager(PeriodicTaskManager):
         except Exception as e:
             logger.error(f"Failed to save queue state for {stage_enum.value}: {e}")
 
-    def load_queue_state(self, stage: Union[StandardPipelineStage, str]) -> List[ProviderTask]:
+    def load_queue_state(self, stage: Union[PipelineStage, str]) -> List[ProviderTask]:
         """Type-safe load queue state for a specific stage"""
         # Convert string to enum for type safety
         if isinstance(stage, str):
             try:
-                stage_enum = StandardPipelineStage(stage)
+                stage_enum = PipelineStage(stage)
             except ValueError:
                 logger.error(f"Invalid stage name: {stage}")
                 return []
@@ -286,7 +286,7 @@ class QueueManager(PeriodicTaskManager):
         for stage_name, stage in stages.items():
             try:
                 # Convert to enum for type safety
-                stage_enum = StandardPipelineStage(stage_name)
+                stage_enum = PipelineStage(stage_name)
 
                 if hasattr(stage, "get_pending_tasks"):
                     tasks = stage.get_pending_tasks()
@@ -303,7 +303,7 @@ class QueueManager(PeriodicTaskManager):
         """Load state for all queues with type-safe stage enumeration"""
         all_tasks = {}
 
-        for stage_enum in StandardPipelineStage:
+        for stage_enum in PipelineStage:
             task_list = self.load_queue_state(stage_enum)
             if task_list:
                 all_tasks[stage_enum.value] = task_list
@@ -314,11 +314,11 @@ class QueueManager(PeriodicTaskManager):
 
         return all_tasks
 
-    def clear_queue_state(self, stage: Union[StandardPipelineStage, str]) -> None:
+    def clear_queue_state(self, stage: Union[PipelineStage, str]) -> None:
         """Clear saved state for a stage with type-safe enum support"""
         if isinstance(stage, str):
             try:
-                stage_enum = StandardPipelineStage(stage)
+                stage_enum = PipelineStage(stage)
             except ValueError:
                 logger.error(f"Invalid stage name: {stage}")
                 return
@@ -335,14 +335,14 @@ class QueueManager(PeriodicTaskManager):
 
     def clear_all_states(self) -> None:
         """Clear all saved queue states using type-safe enumeration"""
-        for stage_enum in StandardPipelineStage:
+        for stage_enum in PipelineStage:
             self.clear_queue_state(stage_enum)
 
     def get_state_info(self) -> Dict[str, QueueStateMetrics]:
         """Get type-safe information about saved queue states"""
         info = {}
 
-        for stage_enum in StandardPipelineStage:
+        for stage_enum in PipelineStage:
             filepath = self._get_queue_filepath(stage_enum)
 
             if filepath.exists():
@@ -413,11 +413,11 @@ class QueueManager(PeriodicTaskManager):
 
         return info
 
-    def get_queue_metrics(self, stage: Union[StandardPipelineStage, str]) -> QueueStateMetrics:
+    def get_queue_metrics(self, stage: Union[PipelineStage, str]) -> QueueStateMetrics:
         """Get queue metrics for a specific stage"""
         if isinstance(stage, str):
             try:
-                stage_enum = StandardPipelineStage(stage)
+                stage_enum = PipelineStage(stage)
             except ValueError:
                 logger.error(f"Invalid stage name: {stage}")
                 return QueueStateMetrics(
@@ -448,7 +448,7 @@ class QueueManager(PeriodicTaskManager):
         if self.stages:
             self.save_all_queues(self.stages)
 
-    def _save_empty_state(self, stage: StandardPipelineStage) -> None:
+    def _save_empty_state(self, stage: PipelineStage) -> None:
         """Save empty state to indicate clean stage with type safety"""
         filepath = self._get_queue_filepath(stage)
         try:

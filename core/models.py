@@ -17,7 +17,6 @@ from typing import Any, Dict, List, Optional, Set
 from .enums import ErrorReason
 
 
-# Configuration models
 @dataclass
 class RateLimitConfig:
     """Unified rate limiting configuration"""
@@ -156,25 +155,6 @@ class AllRecoveredTasks:
             f"Acquisition: {self.total_acquisition_tasks()}, "
             f"Invalid: {self.total_invalid_keys()}"
         )
-
-
-@dataclass
-class ProviderPatterns:
-    """Provider extraction patterns"""
-
-    key_pattern: str = ""
-    address_pattern: str = ""
-    endpoint_pattern: str = ""
-    model_pattern: str = ""
-
-    def to_dict(self) -> Dict[str, str]:
-        """Convert to dictionary"""
-        return {
-            "key_pattern": self.key_pattern,
-            "address_pattern": self.address_pattern,
-            "endpoint_pattern": self.endpoint_pattern,
-            "model_pattern": self.model_pattern,
-        }
 
 
 @dataclass
@@ -346,46 +326,65 @@ class CheckResult:
 
 
 @dataclass
-class Condition:
-    """Search condition for provider configuration
+class Patterns:
+    """Extraction patterns for keys and metadata"""
 
-    Defines search parameters and patterns used to discover
+    key_pattern: str = ""
+    address_pattern: str = ""
+    endpoint_pattern: str = ""
+    model_pattern: str = ""
+
+    def to_dict(self) -> Dict[str, str]:
+        """Convert to dictionary"""
+        return {
+            "key_pattern": self.key_pattern,
+            "address_pattern": self.address_pattern,
+            "endpoint_pattern": self.endpoint_pattern,
+            "model_pattern": self.model_pattern,
+        }
+
+
+@dataclass
+class Condition:
+    """Search condition with complete pattern configuration
+
+    Defines search parameters and extraction patterns used to discover
     API keys and services for a specific provider.
     """
 
     query: Optional[str] = None
-    regex: Optional[str] = None
+    patterns: Patterns = field(default_factory=Patterns)
     description: str = ""
     enabled: bool = True
 
     def __post_init__(self):
         """Validate condition after initialization"""
-        if not self.query and not self.regex:
-            raise ValueError("Condition must have either query or regex")
+        if not self.query and not self.patterns.key_pattern:
+            raise ValueError("Condition must have either query or key_pattern")
 
     def get_search_term(self) -> str:
         """Get the primary search term"""
-        return self.query or self.regex or ""
+        return self.query or self.patterns.key_pattern or ""
 
     def is_valid(self) -> bool:
         """Check if condition is valid and enabled"""
         return self.enabled and bool(self.get_search_term())
 
     def __hash__(self) -> int:
-        """Hash based on query and regex for use in sets and dicts"""
-        return hash((self.query, self.regex))
+        """Hash based on query and patterns for use in sets and dicts"""
+        return hash((self.query, self.patterns.key_pattern))
 
     def __eq__(self, other: object) -> bool:
-        """Equality comparison based on query and regex"""
+        """Equality comparison based on query and patterns"""
         if not isinstance(other, Condition):
             return False
-        return self.query == other.query and self.regex == other.regex
+        return self.query == other.query and self.patterns == other.patterns
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization"""
         return {
             "query": self.query,
-            "regex": self.regex,
+            "patterns": self.patterns.to_dict(),
             "description": self.description,
             "enabled": self.enabled,
         }
@@ -393,9 +392,12 @@ class Condition:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Condition":
         """Create Condition from dictionary"""
+        params = data.get("patterns", {})
+        patterns = Patterns(**params) if params else Patterns()
+
         return cls(
             query=data.get("query"),
-            regex=data.get("regex"),
+            patterns=patterns,
             description=data.get("description", ""),
             enabled=data.get("enabled", True),
         )
@@ -580,3 +582,18 @@ class HealthStatus:
     def is_degraded(self, max_error_rate: float = 0.1) -> bool:
         """Check if component is in degraded state"""
         return self.error_rate > max_error_rate
+
+
+def inherit_patterns(parent: Patterns, condition: Condition) -> None:
+    """Inherit global patterns to condition if fields are empty"""
+    if not parent or not isinstance(parent, Patterns) or not condition or not isinstance(condition, Condition):
+        return
+
+    if not condition.patterns.key_pattern:
+        condition.patterns.key_pattern = parent.key_pattern
+    if not condition.patterns.address_pattern:
+        condition.patterns.address_pattern = parent.address_pattern
+    if not condition.patterns.endpoint_pattern:
+        condition.patterns.endpoint_pattern = parent.endpoint_pattern
+    if not condition.patterns.model_pattern:
+        condition.patterns.model_pattern = parent.model_pattern

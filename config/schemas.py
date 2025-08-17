@@ -16,8 +16,8 @@ Key Features:
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from core.enums import LoadBalanceStrategy, StandardPipelineStage
-from core.models import RateLimitConfig
+from core.enums import LoadBalanceStrategy, PipelineStage
+from core.models import Condition, Patterns, RateLimitConfig
 
 
 @dataclass
@@ -78,20 +78,20 @@ class GlobalConfig:
 def _get_default_threads() -> Dict[str, int]:
     """Get default thread configuration using StandardPipelineStage enum"""
     return {
-        StandardPipelineStage.SEARCH.value: 1,
-        StandardPipelineStage.GATHER.value: 8,
-        StandardPipelineStage.CHECK.value: 4,
-        StandardPipelineStage.INSPECT.value: 2,
+        PipelineStage.SEARCH.value: 1,
+        PipelineStage.GATHER.value: 8,
+        PipelineStage.CHECK.value: 4,
+        PipelineStage.INSPECT.value: 2,
     }
 
 
 def _get_default_queue_sizes() -> Dict[str, int]:
     """Get default queue sizes using StandardPipelineStage enum"""
     return {
-        StandardPipelineStage.SEARCH.value: 100000,
-        StandardPipelineStage.GATHER.value: 200000,
-        StandardPipelineStage.CHECK.value: 500000,
-        StandardPipelineStage.INSPECT.value: 1000000,
+        PipelineStage.SEARCH.value: 100000,
+        PipelineStage.GATHER.value: 200000,
+        PipelineStage.CHECK.value: 500000,
+        PipelineStage.INSPECT.value: 1000000,
     }
 
 
@@ -267,16 +267,6 @@ class ApiConfig:
 
 
 @dataclass
-class Patterns:
-    """Extraction patterns for keys and metadata"""
-
-    key_pattern: str = ""
-    address_pattern: str = ""
-    endpoint_pattern: str = ""
-    model_pattern: str = ""
-
-
-@dataclass
 class StageConfig:
     """Pipeline stage configuration for individual tasks"""
 
@@ -303,7 +293,7 @@ class TaskConfig:
     extras: Dict[str, Any] = field(default_factory=dict)
     api: ApiConfig = field(default_factory=ApiConfig)
     patterns: Patterns = field(default_factory=Patterns)
-    conditions: List[Dict[str, str]] = field(default_factory=list)
+    conditions: List[Condition] = field(default_factory=list)
     rate_limit: RateLimitConfig = field(default_factory=RateLimitConfig)
 
 
@@ -311,14 +301,17 @@ class TaskConfig:
 class WorkerManagerConfig:
     """Worker manager configuration for dynamic thread management"""
 
-    enabled: bool = False  # Enable/disable worker manager (default: disabled)
+    # Enable/disable worker manager (default: disabled)
+    enabled: bool = False
     min_workers: int = 1
     max_workers: int = 10
     target_queue_size: int = 100
     adjustment_interval: float = 5.0
     scale_up_threshold: float = 0.8
     scale_down_threshold: float = 0.2
-    log_recommendations: bool = True  # Enable/disable worker adjustment recommendation logging
+
+    # Enable/disable worker adjustment recommendation logging
+    log_recommendations: bool = True
 
     def __post_init__(self):
         """Validate worker manager configuration"""

@@ -15,7 +15,7 @@ Key Features:
 
 from typing import List
 
-from .schemas import Config, LoadBalanceStrategy
+from .schemas import Config, LoadBalanceStrategy, TaskConfig
 
 
 class ConfigValidator:
@@ -173,7 +173,7 @@ class ConfigValidator:
         for task in config.tasks:
             self._validate_task(task)
 
-    def _validate_task(self, task) -> None:
+    def _validate_task(self, task: TaskConfig) -> None:
         """Validate individual task configuration
 
         Args:
@@ -199,9 +199,17 @@ class ConfigValidator:
             if not task.api.default_model:
                 self.errors.append(f"Default model required for API task: {task.name}")
 
-        # Validate patterns
-        if not task.patterns.key_pattern:
-            self.errors.append(f"Key pattern required for task: {task.name}")
+        # Validate conditions
+        if not task.conditions:
+            self.errors.append(f"At least one condition required for task: {task.name}")
+        else:
+            # Check each condition has valid patterns
+            for i, condition in enumerate(task.conditions):
+                if not condition.patterns.key_pattern:
+                    self.errors.append(f"Key pattern required for condition {i+1} in task: {task.name}")
+
+                if not condition.query and not condition.patterns.key_pattern:
+                    self.errors.append(f"Either query or key_pattern required for condition {i+1} in task: {task.name}")
 
     def _validate_worker_manager_config(self, config: Config) -> None:
         """Validate worker manager configuration

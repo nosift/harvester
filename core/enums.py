@@ -135,7 +135,7 @@ class ResultType(Enum):
 
 
 @unique
-class StandardPipelineStage(Enum):
+class PipelineStage(Enum):
     """Pipeline stage names for type safety"""
 
     SEARCH = "search"

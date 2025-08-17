@@ -10,7 +10,7 @@ and data processing workflows used during system runtime.
 from dataclasses import dataclass
 from typing import Dict, Optional
 
-from core.enums import ResultType, StandardPipelineStage
+from core.enums import PipelineStage, ResultType
 
 # Queue sizes for each stage
 DEFAULT_SEARCH_QUEUE_SIZE: int = 100000
@@ -20,10 +20,10 @@ DEFAULT_INSPECT_QUEUE_SIZE: int = 1000000
 
 # Queue and thread defaults using PipelineStage enum
 DEFAULT_THREAD_COUNTS: Dict[str, int] = {
-    StandardPipelineStage.SEARCH.value: 1,
-    StandardPipelineStage.GATHER.value: 8,
-    StandardPipelineStage.CHECK.value: 4,
-    StandardPipelineStage.INSPECT.value: 2,
+    PipelineStage.SEARCH.value: 1,
+    PipelineStage.GATHER.value: 8,
+    PipelineStage.CHECK.value: 4,
+    PipelineStage.INSPECT.value: 2,
 }
 
 # Queue state constants

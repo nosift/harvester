@@ -9,8 +9,9 @@ stage management and configuration-driven approach.
 
 from typing import Any, Dict, List, Optional
 
-from core.enums import StandardPipelineStage
-from core.models import AllRecoveredTasks, ProviderPatterns, RecoveredTasks
+from config.schemas import Patterns
+from core.enums import PipelineStage
+from core.models import AllRecoveredTasks, RecoveredTasks
 from stage.factory import TaskFactory
 from tools.logger import get_logger
 from tools.utils import handle_exceptions
@@ -101,14 +102,14 @@ class TaskRecoveryStrategy:
             return
 
         # Recover check tasks (Service objects can be used directly)
-        if self._stage_enabled(config, StandardPipelineStage.CHECK.value):
+        if self._stage_enabled(config, PipelineStage.CHECK.value):
             self._recover_check_tasks(provider_name, tasks.check_tasks, tasks.invalid_keys)
 
         # Recover acquisition tasks (URLs need to be converted to AcquisitionTask objects)
-        if self._stage_enabled(config, StandardPipelineStage.GATHER.value):
+        if self._stage_enabled(config, PipelineStage.GATHER.value):
             self._recover_acquisition_tasks(provider_name, tasks.acquisition_tasks)
 
-    def _recover_stage_tasks(self, stage: StandardPipelineStage, provider_name: str, tasks: List[Any]) -> None:
+    def _recover_stage_tasks(self, stage: PipelineStage, provider_name: str, tasks: List[Any]) -> None:
         """Recover tasks for specific stage using enum
 
         Args:
@@ -146,7 +147,7 @@ class TaskRecoveryStrategy:
         if not check_tasks:
             return
 
-        stage_instance = self.pipeline.get_stage(StandardPipelineStage.CHECK.value)
+        stage_instance = self.pipeline.get_stage(PipelineStage.CHECK.value)
         if not stage_instance:
             logger.warning("Check stage not found")
             return
@@ -174,7 +175,7 @@ class TaskRecoveryStrategy:
         if recovered_count > 0:
             logger.info(f"Recovered {recovered_count} check tasks for {provider_name}")
 
-    def _recover_acquisition_tasks(self, provider_name: str, acquisition_tasks: List[str]) -> None:
+    def _recover_acquisition_tasks(self, name: str, acquisition_tasks: List[str]) -> None:
         """Recover acquisition tasks by creating AcquisitionTask objects from URLs
 
         Args:
@@ -184,15 +185,15 @@ class TaskRecoveryStrategy:
         if not acquisition_tasks:
             return
 
-        stage_instance = self.pipeline.get_stage(StandardPipelineStage.GATHER.value)
+        stage_instance = self.pipeline.get_stage(PipelineStage.GATHER.value)
         if not stage_instance:
             logger.warning("Acquisition stage not found")
             return
 
         # Get provider patterns
-        provider = self.providers.get(provider_name)
+        provider = self.providers.get(name)
         if not provider:
-            logger.warning(f"Provider not found: {provider_name}")
+            logger.warning(f"Provider not found: {name}")
             return
 
         patterns = self._get_provider_patterns(provider)
@@ -201,35 +202,35 @@ class TaskRecoveryStrategy:
         for url in acquisition_tasks:
             try:
                 # Create acquisition task with patterns
-                acquisition_task = TaskFactory.create_acquisition_task(provider_name, url, patterns.to_dict())
+                acquisition_task = TaskFactory.create_acquisition_task(name, url, patterns)
                 stage_instance.put_task(acquisition_task)
                 recovered_count += 1
 
             except Exception as e:
-                logger.error(f"Failed to create acquisition task for {provider_name}: {e}")
+                logger.error(f"Failed to create acquisition task for {name}: {e}")
 
         if recovered_count > 0:
-            logger.info(f"Recovered {recovered_count} acquisition tasks for {provider_name}")
+            logger.info(f"Recovered {recovered_count} acquisition tasks for {name}")
 
-    def _get_provider_patterns(self, provider: Any) -> ProviderPatterns:
+    def _get_provider_patterns(self, provider: Any) -> Patterns:
         """Extract patterns from provider conditions
 
         Args:
             provider: Provider object
 
         Returns:
-            ProviderPatterns object with extracted patterns
+            Patterns object with extracted patterns
         """
-        patterns = ProviderPatterns()
+        patterns = Patterns()
 
-        # Use first condition's regex as key pattern
+        # Use first condition's patterns if available
         if hasattr(provider, "conditions") and provider.conditions:
-            patterns.key_pattern = provider.conditions[0].regex
+            return provider.conditions[0].patterns
 
         return patterns
 
     @handle_exceptions(default_result=None, log_level="warning")
-    def _get_stage_enum(self, stage_name: str) -> Optional[StandardPipelineStage]:
+    def _get_stage_enum(self, stage_name: str) -> Optional[PipelineStage]:
         """Get stage enum from string name safely
 
         Args:
@@ -238,9 +239,9 @@ class TaskRecoveryStrategy:
         Returns:
             PipelineStage enum or None if not found
         """
-        return StandardPipelineStage(stage_name)
+        return PipelineStage(stage_name)
 
-    def _get_provider_config(self, provider_name: str) -> Optional[Any]:
+    def _get_provider_config(self, name: str) -> Optional[Any]:
         """Get provider configuration
 
         Args:
@@ -249,7 +250,7 @@ class TaskRecoveryStrategy:
         Returns:
             Provider configuration or None
         """
-        provider = self.providers.get(provider_name)
+        provider = self.providers.get(name)
         if not provider:
             return None
 
