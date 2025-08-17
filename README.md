@@ -58,7 +58,7 @@ graph TB
         Pipeline["Pipeline Manager<br/>(manager/pipeline.py)"]
         WorkerMgr["Worker Manager<br/>(manager/worker.py)"]
         QueueMgr["Queue Manager<br/>(manager/queue.py)"]
-        Monitor["System Monitor<br/>(manager/monitor.py)"]
+        StatusMgr["Status Manager<br/>(manager/status.py)"]
         Shutdown["Shutdown Coordinator<br/>(manager/shutdown.py)"]
     end
 
@@ -100,11 +100,13 @@ graph TB
 
     %% State Management Layer
     subgraph StateLayer["State Management Layer"]
-        StateStatus["Status Manager<br/>(state/status.py)"]
         StateCollector["State Collector<br/>(state/collector.py)"]
         StateDisplay["Display Engine<br/>(state/display.py)"]
         StateBuilder["Status Builder<br/>(state/builder.py)"]
         StateModels["State Models<br/>(state/models.py)"]
+        StateMonitor["State Monitor<br/>(state/monitor.py)"]
+        StateEnums["State Enums<br/>(state/enums.py)"]
+        StateTypes["State Types<br/>(state/types.py)"]
     end
 
     %% External Systems
@@ -151,6 +153,7 @@ graph TB
     subgraph AppLayer["Application Management Layer"]
         MainApp[Main Application]
         TaskManager[Task Manager]
+        StatusManager[Status Manager]
         ResourceManager[Resource Manager]
         ShutdownManager[Shutdown Manager]
     end
@@ -215,10 +218,10 @@ graph TB
 
     %% State & Data Management
     subgraph StateManagement["State & Data Management"]
-        StatusManager[Status Manager]
         StateCollector[State Collector]
         DisplayEngine[Display Engine]
         StatusBuilder[Status Builder]
+        StateMonitor[State Monitor]
         PersistenceLayer[Persistence Layer]
         SnapshotManager[Snapshot Manager]
         ResultManager[Result Manager]
@@ -250,6 +253,7 @@ graph TB
 
     %% Application Flow
     MainApp --> TaskManager
+    MainApp --> StatusManager
     MainApp --> ResourceManager
     MainApp --> ShutdownManager
     TaskManager --> StageRegistry
@@ -284,10 +288,11 @@ graph TB
     BaseProvider --> CustomProviders
 
     %% State Management Integration
-    ProcessingStages --> StatusManager
+    ProcessingStages --> StateCollector
     QueueManager --> StateCollector
-    StatusManager --> DisplayEngine
-    StatusManager --> StatusBuilder
+    StateCollector --> DisplayEngine
+    StateCollector --> StatusBuilder
+    StateMonitor --> DisplayEngine
     ProcessingStages --> PersistenceLayer
     PersistenceLayer --> SnapshotManager
     PersistenceLayer --> ResultManager
@@ -317,11 +322,11 @@ graph TB
     classDef externalClass fill:#ffebee,stroke:#d32f2f,stroke-width:2px
 
     class User,CLI,ConfigMgmt userClass
-    class MainApp,TaskManager,ResourceManager,ShutdownManager appClass
+    class MainApp,TaskManager,StatusManager,ResourceManager,ShutdownManager appClass
     class StageRegistry,DependencyResolver,StageFactory,QueueManager,WorkerManager,MonitoringSystem,SearchStage,GatherStage,CheckStage,InspectStage coreClass
     class ProviderRegistry,BaseProvider,OpenAIProvider,CustomProviders providerClass
     class SearchClient,QueryOptimizer,ValidationEngine,RecoveryEngine engineClass
-    class StatusManager,StateCollector,DisplayEngine,StatusBuilder,PersistenceLayer,SnapshotManager,ResultManager stateClass
+    class StateCollector,StateMonitor,DisplayEngine,StatusBuilder,PersistenceLayer,SnapshotManager,ResultManager stateClass
     class RateLimiting,CredentialMgmt,AgentRotation,LoggingSystem,RetryFramework,ResourcePool infraClass
     class GitHubAPI,GitHubWeb,AIServiceAPIs,FileSystem externalClass
 ```
@@ -401,6 +406,7 @@ sequenceDiagram
    - **Task Management** (`manager/task.py`): Provider coordination and task distribution
    - **Resource Coordination** (`tools/coordinator.py`): Global resource management and coordination
    - **Shutdown Management** (`manager/shutdown.py`): Graceful shutdown coordination
+   - **Status Management** (`manager/status.py`): Application status management and coordination
    - **Worker Management** (`manager/worker.py`): Worker thread management and scaling
    - **Queue Management** (`manager/queue.py`): Multi-queue coordination and management
 
@@ -433,16 +439,18 @@ sequenceDiagram
      - **Load Balancing** (`tools/balancer.py`): Resource distribution strategies
      - **Credential Management** (`tools/credential.py`): Secure credential rotation and management
      - **Agent Management** (`tools/agent.py`): User-agent rotation for web scraping
+     - **Pattern Matching** (`tools/patterns.py`): Pattern matching utilities and helpers
      - **Retry Framework** (`tools/retry.py`): Unified retry mechanisms with backoff strategies
      - **Resource Pooling** (`tools/resources.py`): Resource pool management and optimization
 
 ### 6. **State Management Layer**
-   - **Status Management** (`state/status.py`): Centralized status management and coordination
    - **State Collection** (`state/collector.py`): System metrics gathering and aggregation
    - **Display Engine** (`state/display.py`): User-friendly progress visualization and formatting
    - **Status Builder** (`state/builder.py`): Status data construction and transformation
    - **State Models** (`state/models.py`): Monitoring data structures and metrics
-   - **Field Mapping** (`state/mapper.py`): Data field mapping and transformation
+   - **State Monitoring** (`state/monitor.py`): Real-time state monitoring and tracking
+   - **State Enumerations** (`state/enums.py`): State-related enumerations and constants
+   - **State Types** (`state/types.py`): State type definitions and interfaces
 
 
 ## Processing Stages
@@ -608,13 +616,15 @@ The system features a sophisticated **Query Optimization Engine** with mathemati
 
    1. **Basic Configuration** - Suitable for quick start:
       ```yaml
-      global:
+      # Global application settings
+      global_config:
         workspace: "./data"  # Working directory
         github_credentials:
           sessions:
             - "your_github_session_here"  # GitHub session token
           strategy: "round_robin"  # Load balancing strategy
 
+      # Pipeline stage configuration
       pipeline:
         threads:
           search: 1    # Search threads (keep low)
@@ -622,36 +632,49 @@ The system features a sophisticated **Query Optimization Engine** with mathemati
           check: 2     # Validation threads
           inspect: 1    # API capability inspection threads
 
+      # Statistics display configuration
+      stats:
+        interval: 10  # Update interval in seconds
+        show: true    # Enable statistics display
+
+      # System monitoring settings
+      monitoring:
+        update_interval: 2.0    # Monitoring update interval
+        error_threshold: 0.1    # Error rate threshold
+
+      # Data persistence configuration
+      persistence:
+        auto_restore: true      # Auto restore state on startup
+        shutdown_timeout: 30    # Shutdown timeout in seconds
+
+      # Global rate limiting configuration
+      ratelimits:
+        github_web:
+          base_rate: 0.5       # Base rate in requests per second
+          burst_limit: 2       # Maximum burst size
+          adaptive: true       # Enable adaptive rate limiting
+
+      # Provider task configurations
       tasks:
-        - name: "openai"  # Provider name
-          enabled: true   # Enable/disable provider
+        - name: "openai"         # Provider name
+          enabled: true          # Enable/disable provider
           provider_type: "openai_like"
-
-          # API validation configuration
-          api:
-            base_url: "https://api.openai.com"
-            completion_path: "/v1/chat/completions"
-            default_model: "gpt-3.5-turbo"
-
-          # Key detection patterns
+          use_api: false         # Use GitHub API for searching
+          
+          # Pipeline stage settings
+          stages:
+            search: true         # Enable search stage
+            gather: true         # Enable acquisition stage
+            check: true          # Enable validation stage
+            inspect: true        # Enable API capability inspection
+          
+          # Pattern matching configuration
           patterns:
-            key_pattern: "sk-[A-Za-z0-9]{48}"
-
+            key_pattern: "sk(?:-proj)?-[a-zA-Z0-9]{20}T3BlbkFJ[a-zA-Z0-9]{20}"
+          
           # Search conditions
           conditions:
-            - query: "sk- openai api key"
-            - query: "OPENAI_API_KEY"
-
-          # Processing stages
-          stages:
-            search: true    # Enable search stage
-            gather: true   # Enable acquisition stage
-            check: true     # Enable validation stage
-            inspect: true    # Enable API capability inspection
-
-          # Additional settings
-          extras:
-            directory: "openai_results"     # Custom output directory
+            - query: '"T3BlbkFJ"'
       ```
 
    2. **Full Configuration** - Includes all advanced options:
@@ -721,10 +744,10 @@ harvester/
 │   └── config-simple.yaml  # Basic configuration template
 ├── manager/          # Task and resource management
 │   ├── base.py       # Base management classes
-│   ├── monitor.py    # System monitoring
 │   ├── pipeline.py   # Pipeline management
 │   ├── queue.py      # Queue management
 │   ├── shutdown.py   # Shutdown coordination
+│   ├── status.py     # Status management
 │   ├── task.py       # Task management
 │   ├── worker.py     # Worker thread management
 │   └── __init__.py   # Package initialization
@@ -768,9 +791,10 @@ harvester/
 │   ├── builder.py    # Status builder
 │   ├── collector.py  # State collection
 │   ├── display.py    # Display engine
-│   ├── mapper.py     # Field mapping
+│   ├── enums.py      # State enumerations
 │   ├── models.py     # State data models
-│   ├── status.py     # Status manager
+│   ├── monitor.py    # State monitoring
+│   ├── types.py      # State type definitions
 │   └── __init__.py   # Package initialization
 ├── storage/          # Storage and persistence
 │   ├── atomic.py     # Atomic file operations
@@ -785,12 +809,16 @@ harvester/
 │   ├── coordinator.py # Resource coordination
 │   ├── credential.py # Credential management
 │   ├── logger.py     # Logging system
+│   ├── patterns.py   # Pattern matching utilities
 │   ├── ratelimit.py  # Rate limiting
 │   ├── resources.py  # Resource pooling
 │   ├── retry.py      # Retry framework
 │   ├── utils.py      # General utilities
 │   └── __init__.py   # Package initialization
+├── .dockerignore     # Docker ignore rules
 ├── .gitignore        # Git ignore rules
+├── Dockerfile        # Docker container configuration
+├── entrypoint.sh     # Docker entrypoint script
 ├── LICENSE           # License file
 ├── main.py           # Entry point and application core
 ├── README.md         # English documentation

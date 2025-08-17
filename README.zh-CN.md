@@ -58,7 +58,7 @@ graph TB
         Pipeline["流水线管理器<br/>(manager/pipeline.py)"]
         WorkerMgr["工作线程管理器<br/>(manager/worker.py)"]
         QueueMgr["队列管理器<br/>(manager/queue.py)"]
-        Monitor["系统监控器<br/>(manager/monitor.py)"]
+        StatusMgr["状态管理器<br/>(manager/status.py)"]
         Shutdown["关闭协调器<br/>(manager/shutdown.py)"]
     end
 
@@ -100,11 +100,13 @@ graph TB
 
     %% 状态管理层
     subgraph StateLayer["状态管理层"]
-        StateStatus["状态管理器<br/>(state/status.py)"]
         StateCollector["状态收集器<br/>(state/collector.py)"]
         StateDisplay["显示引擎<br/>(state/display.py)"]
         StateBuilder["状态构建器<br/>(state/builder.py)"]
         StateModels["状态模型<br/>(state/models.py)"]
+        StateMonitor["状态监控器<br/>(state/monitor.py)"]
+        StateEnums["状态枚举<br/>(state/enums.py)"]
+        StateTypes["状态类型<br/>(state/types.py)"]
     end
 
     %% 外部系统
@@ -151,6 +153,7 @@ graph TB
     subgraph AppLayer["应用管理层"]
         MainApp[主应用程序]
         TaskManager[任务管理器]
+        StatusManager[状态管理器]
         ResourceManager[资源管理器]
         ShutdownManager[关闭管理器]
     end
@@ -213,7 +216,10 @@ graph TB
     
     %% 状态与数据管理
     subgraph StateManagement["状态与数据管理"]
+        StateCollector[状态收集器]
         StateMonitor[实时状态监控器]
+        DisplayEngine[显示引擎]
+        StatusBuilder[状态构建器]
         DataPersistence[数据持久化层]
         QueuePersistence[队列状态持久化]
         ResultAggregator[结果聚合器]
@@ -245,6 +251,7 @@ graph TB
     
     %% 应用流程
     MainApp --> TaskManager
+    MainApp --> StatusManager
     MainApp --> ResourceManager
     MainApp --> ShutdownManager
     TaskManager --> StageRegistry
@@ -280,10 +287,11 @@ graph TB
     BaseProvider --> CustomProviders
     
     %% 状态管理集成
-    DAGEngine --> StateMonitor
+    DAGEngine --> StateCollector
     QueueManager --> QueuePersistence
     ProcessingStages --> DataPersistence
     ProcessingStages --> ResultAggregator
+    StateCollector --> DisplayEngine
     StateMonitor --> MonitoringSystem
     MonitoringSystem --> User
     
@@ -312,11 +320,11 @@ graph TB
     classDef externalClass fill:#ffebee,stroke:#d32f2f,stroke-width:2px
     
     class User,CLI,ConfigMgmt userClass
-    class MainApp,TaskManager,ResourceManager,ShutdownManager appClass
+    class MainApp,TaskManager,StatusManager,ResourceManager,ShutdownManager appClass
     class StageRegistry,DependencyResolver,DAGEngine,QueueManager,LoadBalancer,TaskScheduler,SearchStage,AcquisitionStage,CheckStage,InspectStage coreClass
     class ProviderRegistry,ProviderFactory,OpenAIProvider,AnthropicProvider,GeminiProvider,CustomProviders providerClass
     class SearchEngine,QueryOptimizer,ValidationEngine,RecoveryEngine engineClass
-    class StateMonitor,DataPersistence,QueuePersistence,ResultAggregator,MonitoringSystem stateClass
+    class StateCollector,StateMonitor,DisplayEngine,StatusBuilder,DataPersistence,QueuePersistence,ResultAggregator,MonitoringSystem stateClass
     class RateLimiting,CredentialMgmt,AgentRotation,LoggingSystem,SecurityLayer infraClass
     class GitHubAPI,GitHubWeb,AIServiceAPIs,FileSystem externalClass
 ```
@@ -387,6 +395,7 @@ sequenceDiagram
    - **任务管理** (`manager/task.py`): 提供商协调和任务分发
    - **资源协调** (`tools/coordinator.py`): 全局资源管理和协调
    - **关闭管理** (`manager/shutdown.py`): 优雅关闭协调
+   - **状态管理** (`manager/status.py`): 应用状态管理和协调
    - **工作线程管理** (`manager/worker.py`): 工作线程管理和扩展
    - **队列管理** (`manager/queue.py`): 多队列协调和管理
 
@@ -418,16 +427,18 @@ sequenceDiagram
      - **负载均衡** (`tools/balancer.py`): 资源分配策略
      - **凭证管理** (`tools/credential.py`): 安全凭证轮换和管理
      - **代理管理** (`tools/agent.py`): 网页抓取的用户代理轮换
+     - **模式匹配** (`tools/patterns.py`): 模式匹配工具和辅助函数
      - **重试框架** (`tools/retry.py`): 带退避策略的统一重试机制
      - **资源池** (`tools/resources.py`): 资源池管理和优化
 
 ### 6. **状态管理层**
-   - **状态管理** (`state/status.py`): 集中式状态管理和协调
    - **状态收集** (`state/collector.py`): 系统指标收集和聚合
    - **显示引擎** (`state/display.py`): 用户友好的进度可视化和格式化
    - **状态构建器** (`state/builder.py`): 状态数据构建和转换
    - **状态模型** (`state/models.py`): 监控数据结构和指标
-   - **字段映射** (`state/mapper.py`): 数据字段映射和转换
+   - **状态监控** (`state/monitor.py`): 实时状态监控和跟踪
+   - **状态枚举** (`state/enums.py`): 状态相关枚举和常量
+   - **状态类型** (`state/types.py`): 状态类型定义和接口
 
 
 ## 处理阶段
@@ -593,13 +604,15 @@ sequenceDiagram
 
    1. **基础配置** - 适合快速开始使用：
       ```yaml
-      global:
+      # 全局应用设置
+      global_config:
         workspace: "./data"  # 工作目录
         github_credentials:
           sessions:
             - "your_github_session_here"  # GitHub会话令牌
           strategy: "round_robin"  # 负载均衡策略
 
+      # 流水线阶段配置
       pipeline:
         threads:
           search: 1    # 搜索线程数（建议保持较低）
@@ -607,36 +620,49 @@ sequenceDiagram
           check: 2     # 验证线程数
           inspect: 1    # API能力检查线程数
 
+      # 统计显示配置
+      stats:
+        interval: 10  # 更新间隔（秒）
+        show: true    # 启用统计显示
+
+      # 系统监控设置
+      monitoring:
+        update_interval: 2.0    # 监控更新间隔
+        error_threshold: 0.1    # 错误率阈值
+
+      # 数据持久化配置
+      persistence:
+        auto_restore: true      # 启动时自动恢复状态
+        shutdown_timeout: 30    # 关闭超时时间（秒）
+
+      # 全局速率限制配置
+      ratelimits:
+        github_web:
+          base_rate: 0.5       # 基础速率（每秒请求数）
+          burst_limit: 2       # 最大突发大小
+          adaptive: true       # 启用自适应速率限制
+
+      # 提供商任务配置
       tasks:
-        - name: "openai"  # 提供商名称
-          enabled: true   # 是否启用
+        - name: "openai"         # 提供商名称
+          enabled: true          # 是否启用
           provider_type: "openai_like"
-
-          # API验证配置
-          api:
-            base_url: "https://api.openai.com"
-            completion_path: "/v1/chat/completions"
-            default_model: "gpt-3.5-turbo"
-
-          # 密钥识别模式
+          use_api: false         # 使用GitHub API进行搜索
+          
+          # 流水线阶段设置
+          stages:
+            search: true         # 启用搜索阶段
+            gather: true         # 启用采集阶段
+            check: true          # 启用验证阶段
+            inspect: true        # 启用API能力检查
+          
+          # 模式匹配配置
           patterns:
-            key_pattern: "sk-[A-Za-z0-9]{48}"
-
+            key_pattern: "sk(?:-proj)?-[a-zA-Z0-9]{20}T3BlbkFJ[a-zA-Z0-9]{20}"
+          
           # 搜索条件
           conditions:
-            - query: "sk- openai api key"
-            - query: "OPENAI_API_KEY"
-
-          # 处理阶段
-          stages:
-            search: true    # 启用搜索阶段
-            gather: true   # 启用采集阶段
-            check: true     # 启用验证阶段
-            inspect: true    # 启用API能力检查
-
-          # 额外配置
-          extras:
-            directory: "openai_results"     # 自定义输出目录
+            - query: '"T3BlbkFJ"'
       ```
 
    2. **完整配置** - 包含所有高级选项：
@@ -720,10 +746,10 @@ harvester/
 │   └── config-simple.yaml  # 基础配置模板
 ├── manager/          # 任务和资源管理
 │   ├── base.py       # 基础管理类
-│   ├── monitor.py    # 系统监控
 │   ├── pipeline.py   # 流水线管理
 │   ├── queue.py      # 队列管理
 │   ├── shutdown.py   # 关闭协调
+│   ├── status.py     # 状态管理
 │   ├── task.py       # 任务管理
 │   ├── worker.py     # 工作线程管理
 │   └── __init__.py   # 包初始化
@@ -767,9 +793,10 @@ harvester/
 │   ├── builder.py    # 状态构建器
 │   ├── collector.py  # 状态收集
 │   ├── display.py    # 显示引擎
-│   ├── mapper.py     # 字段映射
+│   ├── enums.py      # 状态枚举
 │   ├── models.py     # 状态数据模型
-│   ├── status.py     # 状态管理器
+│   ├── monitor.py    # 状态监控
+│   ├── types.py      # 状态类型定义
 │   └── __init__.py   # 包初始化
 ├── storage/          # 存储和持久化
 │   ├── atomic.py     # 原子文件操作
@@ -784,12 +811,16 @@ harvester/
 │   ├── coordinator.py # 资源协调
 │   ├── credential.py # 凭证管理
 │   ├── logger.py     # 日志系统
+│   ├── patterns.py   # 模式匹配工具
 │   ├── ratelimit.py  # 速率限制
 │   ├── resources.py  # 资源池
 │   ├── retry.py      # 重试框架
 │   ├── utils.py      # 通用工具
 │   └── __init__.py   # 包初始化
+├── .dockerignore     # Docker 忽略规则
 ├── .gitignore        # Git 忽略规则
+├── Dockerfile        # Docker 容器配置
+├── entrypoint.sh     # Docker 入口脚本
 ├── LICENSE           # 许可证文件
 ├── main.py           # 入口点和应用程序核心
 ├── README.md         # 英文文档
