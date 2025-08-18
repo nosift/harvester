@@ -23,10 +23,12 @@ from core.enums import (
     QueueStateProvider,
     QueueStateStatus,
 )
-from core.tasks import ProviderTask
+from core.models import ProviderTask
+from stage.base import BasePipelineStage
 from stage.factory import TaskFactory
 from state.models import QueueStateMetrics
 from storage.atomic import AtomicFileWriter
+from storage.persistence import MultiResultManager
 from tools.logger import get_logger
 
 from .base import PeriodicTaskManager
@@ -156,7 +158,7 @@ class QueueManager(PeriodicTaskManager):
             # Type-safe enum path
             return self.stage_files[stage]
 
-    def start_periodic_save(self, stages: Dict[str, Any]) -> None:
+    def start_periodic_save(self, stages: Dict[str, BasePipelineStage]) -> None:
         """Start periodic queue state saving"""
         self.stages = stages
         self.start()  # Use base class start method
@@ -281,20 +283,15 @@ class QueueManager(PeriodicTaskManager):
             logger.error(f"Failed to load queue state for {stage_enum.value}: {e}")
             return []
 
-    def save_all_queues(self, stages: Dict[str, Any]) -> None:
+    def save_all_queues(self, stages: Dict[str, BasePipelineStage]) -> None:
         """Save state for all queues with type-safe stage handling"""
         for stage_name, stage in stages.items():
             try:
                 # Convert to enum for type safety
                 stage_enum = PipelineStage(stage_name)
 
-                if hasattr(stage, "get_pending_tasks"):
-                    tasks = stage.get_pending_tasks()
-                    self.save_queue_state(stage_enum, tasks)
-                else:
-                    # Fallback: try to extract tasks from queue
-                    tasks = self._extract_tasks_from_queue(stage)
-                    self.save_queue_state(stage_enum, tasks)
+                tasks = stage.get_pending_tasks()
+                self.save_queue_state(stage_enum, tasks)
             except ValueError:
                 logger.warning(f"Unknown stage name: {stage_name}, skipping save")
                 continue
@@ -471,26 +468,25 @@ class QueueManager(PeriodicTaskManager):
     def _extract_tasks_from_queue(self, stage) -> List[ProviderTask]:
         """Extract tasks from a queue object (fallback method)"""
         task_list = []
-        if hasattr(stage, "queue"):
-            # Try to get tasks without removing them
-            temp_tasks = []
+        # Try to get tasks without removing them
+        temp_tasks = []
 
-            # Extract all tasks
-            while not stage.queue.empty():
-                try:
-                    task = stage.queue.get_nowait()
-                    if isinstance(task, ProviderTask):
-                        task_list.append(task)
-                        temp_tasks.append(task)
-                except:
-                    break
+        # Extract all tasks
+        while not stage.queue.empty():
+            try:
+                task = stage.queue.get_nowait()
+                if isinstance(task, ProviderTask):
+                    task_list.append(task)
+                    temp_tasks.append(task)
+            except:
+                break
 
-            # Put tasks back
-            for task in temp_tasks:
-                try:
-                    stage.queue.put_nowait(task)
-                except:
-                    pass
+        # Put tasks back
+        for task in temp_tasks:
+            try:
+                stage.queue.put_nowait(task)
+            except:
+                pass
 
         return task_list
 
@@ -498,7 +494,9 @@ class QueueManager(PeriodicTaskManager):
 class GracefulShutdown:
     """Handles graceful shutdown with queue state preservation"""
 
-    def __init__(self, queue_manager: QueueManager, result_manager: Any, stages: Dict[str, Any]):
+    def __init__(
+        self, queue_manager: QueueManager, result_manager: MultiResultManager, stages: Dict[str, BasePipelineStage]
+    ):
         self.queue_manager = queue_manager
         self.result_manager = result_manager
         self.stages = stages
@@ -523,13 +521,11 @@ class GracefulShutdown:
             # 1. Stop accepting new tasks
             logger.info("Stopping task acceptance...")
             for stage in self.stages.values():
-                if hasattr(stage, "stop_accepting"):
-                    stage.stop_accepting()
+                stage.stop_accepting()
 
             # 2. Flush all result buffers
             logger.info("Flushing result buffers...")
-            if hasattr(self.result_manager, "flush_all"):
-                self.result_manager.flush_all()
+            self.result_manager.flush_all()
 
             # 3. Save all queue states
             logger.info("Saving queue states...")
@@ -547,8 +543,7 @@ class GracefulShutdown:
 
             # 6. Stop managers
             self.queue_manager.stop()
-            if hasattr(self.result_manager, "stop_all"):
-                self.result_manager.stop_all()
+            self.result_manager.stop_all()
 
             logger.info("Graceful shutdown completed")
 
@@ -566,10 +561,10 @@ class GracefulShutdown:
             all_idle = True
 
             for stage in self.stages.values():
-                if hasattr(stage, "is_busy") and stage.is_busy():
+                if stage.is_busy():
                     all_idle = False
                     break
-                elif hasattr(stage, "queue") and not stage.queue.empty():
+                elif not stage.queue.empty():
                     all_idle = False
                     break
 

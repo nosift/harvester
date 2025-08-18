@@ -10,8 +10,7 @@ import threading
 import time
 from abc import ABC, abstractmethod
 from collections import deque
-from dataclasses import dataclass
-from typing import Any, Dict, Optional, Protocol, Tuple, Union, runtime_checkable
+from typing import Dict, Optional, Tuple
 
 from config.schemas import WorkerManagerConfig
 from constant.system import (
@@ -24,7 +23,8 @@ from constant.system import (
     LB_RECENT_HISTORY_SIZE,
 )
 from core.enums import PipelineStage
-from state.models import WorkerMetrics
+from stage.base import WorkerManageable
+from state.models import StageWorkerStatus, WorkerMetrics, WorkerStatus
 from tools.logger import get_logger
 
 from .base import ConditionalTaskManager
@@ -84,67 +84,6 @@ class DefaultScaling(ScalingStrategy):
         return max(self.min_workers, min(self.max_workers, target))
 
 
-@runtime_checkable
-class AdjustableStage(Protocol):
-    """Protocol for pipeline stages that support worker adjustment"""
-
-    def adjust_workers(self, count: int) -> bool:
-        """Adjust worker count for this stage
-
-        Args:
-            count: Target number of workers
-
-        Returns:
-            bool: True if adjustment was successful
-        """
-        ...
-
-
-@runtime_checkable
-class WorkerCountStage(Protocol):
-    """Protocol for pipeline stages that support worker count setting"""
-
-    def set_worker_count(self, count: int) -> bool:
-        """Set worker count for this stage
-
-        Args:
-            count: Target number of workers
-
-        Returns:
-            bool: True if setting was successful
-        """
-        ...
-
-
-# Union type for stages that support worker management
-WorkerManagedStage = Union[AdjustableStage, WorkerCountStage]
-
-
-@dataclass
-class StageWorkerStats:
-    """Worker statistics for a single stage"""
-
-    current_workers: int
-    target_workers: int
-    queue_size: int
-    utilization: float
-    processing_rate: float
-    last_adjustment: float
-
-
-@dataclass
-class WorkerStats:
-    """Overall worker management statistics"""
-
-    timestamp: float
-    stages: Dict[str, StageWorkerStats]
-    total_workers: int
-    total_target_workers: int
-    total_queue_size: int
-    status: str = "ok"
-    error: Optional[str] = None
-
-
 class WorkerManager(ConditionalTaskManager):
     """Dynamic worker manager for pipeline thread management"""
 
@@ -158,7 +97,7 @@ class WorkerManager(ConditionalTaskManager):
         super().__init__("WorkerManager", config.adjustment_interval / 2, shutdown_timeout)
 
         self.worker_metrics: Dict[str, WorkerMetrics] = {}
-        self.stages: Dict[str, Any] = {}
+        self.stages: Dict[str, WorkerManageable] = {}
 
         # Load balancing parameters
         self.min_workers = config.min_workers
@@ -192,17 +131,17 @@ class WorkerManager(ConditionalTaskManager):
         self.last_batch_log_time: float = 0.0
 
         # Cache for last known stats (used when lock timeout occurs)
-        self.last_known_stats: Optional[WorkerStats] = None
+        self.last_known_stats: Optional[WorkerStatus] = None
         self.last_stats_update_time: float = 0.0
 
         logger.info("Initialized worker manager")
 
-    def register_stage(self, stage_name: str, stage_instance: Union[WorkerManagedStage, Any]):
+    def register_stage(self, stage_name: str, stage_instance: WorkerManageable):
         """Register a pipeline stage for worker management
 
         Args:
             stage_name: Name of the stage
-            stage_instance: Stage instance (preferably implementing AdjustableStage or WorkerCountStage)
+            stage_instance: Stage instance (implementing WorkerManageable interface)
         """
         with self.lock:
             self.stages[stage_name] = stage_instance
@@ -225,11 +164,7 @@ class WorkerManager(ConditionalTaskManager):
                 return False
 
             stage = self.stages[stage_name]
-            return (
-                isinstance(stage, (AdjustableStage, WorkerCountStage))
-                or hasattr(stage, "adjust_workers")
-                or hasattr(stage, "set_worker_count")
-            )
+            return isinstance(stage, WorkerManageable)
 
     def _on_stopped(self) -> None:
         """Flush pending recommendations when stopped"""
@@ -360,17 +295,9 @@ class WorkerManager(ConditionalTaskManager):
             return False
 
         try:
-            # Use Protocol-based type checking for better type safety
-            if isinstance(stage, AdjustableStage):
+            # Use unified worker management interface
+            if isinstance(stage, WorkerManageable):
                 success = stage.adjust_workers(target_workers)
-            elif isinstance(stage, WorkerCountStage):
-                success = stage.set_worker_count(target_workers)
-            elif hasattr(stage, "adjust_workers"):
-                # Fallback for duck-typed stages
-                success = stage.adjust_workers(target_workers)
-            elif hasattr(stage, "set_worker_count"):
-                # Fallback for duck-typed stages
-                success = stage.set_worker_count(target_workers)
             else:
                 # Fallback: log recommendation with deduplication
                 self._log_worker_recommendation(stage_name, current_workers, target_workers)
@@ -427,7 +354,7 @@ class WorkerManager(ConditionalTaskManager):
         # Clear pending recommendations
         self.pending_recommendations.clear()
 
-    def get_worker_stats(self) -> WorkerStats:
+    def get_worker_stats(self) -> WorkerStatus:
         """Get current worker management statistics with timeout protection"""
         try:
             # Try to acquire lock with timeout to prevent blocking
@@ -445,7 +372,7 @@ class WorkerManager(ConditionalTaskManager):
                 ):  # Use cache if < 30s old
                     # Return cached stats with updated timestamp and status
                     cached_stats = self.last_known_stats
-                    return WorkerStats(
+                    return WorkerStatus(
                         timestamp=current_time,
                         stages=cached_stats.stages,
                         total_workers=cached_stats.total_workers,
@@ -455,7 +382,7 @@ class WorkerManager(ConditionalTaskManager):
                     )
                 else:
                     # Return basic stats if no recent cache available
-                    return WorkerStats(
+                    return WorkerStatus(
                         timestamp=current_time,
                         stages={},
                         total_workers=0,
@@ -471,7 +398,7 @@ class WorkerManager(ConditionalTaskManager):
             total_queue_size = 0
 
             for stage_name, metrics in worker_metrics_copy.items():
-                stages[stage_name] = StageWorkerStats(
+                stages[stage_name] = StageWorkerStatus(
                     current_workers=metrics.current_workers,
                     target_workers=metrics.target_workers,
                     queue_size=metrics.queue_size,
@@ -486,7 +413,7 @@ class WorkerManager(ConditionalTaskManager):
 
             # Create the stats object
             current_time = time.time()
-            stats = WorkerStats(
+            stats = WorkerStatus(
                 timestamp=current_time,
                 stages=stages,
                 total_workers=total_workers,
@@ -501,7 +428,7 @@ class WorkerManager(ConditionalTaskManager):
             return stats
         except Exception as e:
             # Return error stats instead of raising
-            return WorkerStats(
+            return WorkerStatus(
                 timestamp=time.time(),
                 stages={},
                 total_workers=0,

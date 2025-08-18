@@ -137,10 +137,10 @@ class JSONFormatter(logging.Formatter):
                 "line": record.lineno,
                 "message": record.getMessage(),
             }
-            # Include extra context fields if present
-            for key in ("component", "stage", "provider", "task_id"):
-                if hasattr(record, key):
-                    payload[key] = getattr(record, key)
+            # Include any extra context fields if present
+            for key, value in record.__dict__.items():
+                if key not in payload and not key.startswith("_"):
+                    payload[key] = value
             return json.dumps(payload, ensure_ascii=False)
         except Exception:
             # Fallback to plain text if JSON formatting fails
@@ -158,8 +158,15 @@ def _is_tty() -> bool:
 class RedactionFilter(logging.Filter):
     """Filter that redacts API keys in log records before formatting."""
 
+    # Cache standard LogRecord attributes to avoid repeated computation
+    _standard_attrs = None
+
     def __init__(self) -> None:
         super().__init__()
+        # Initialize standard attributes cache if not already done
+        if RedactionFilter._standard_attrs is None:
+            baseline_record = logging.LogRecord(name="", level=0, pathname="", lineno=0, msg="", args=(), exc_info=None)
+            RedactionFilter._standard_attrs = set(baseline_record.__dict__.keys())
 
     def filter(self, record: logging.LogRecord) -> bool:
         try:
@@ -170,13 +177,12 @@ class RedactionFilter(logging.Filter):
             if isinstance(record.msg, str):
                 record.msg = msg
 
-            # Redact common extra fields if present
-            for key in ("url", "token", "api_key", "auth"):
-                if hasattr(record, key):
-                    value = getattr(record, key)
-                    if isinstance(value, str):
-                        redacted = redact_api_keys_in_text(value)
-                        setattr(record, key, redacted)
+            # Redact any extra fields that might contain sensitive data
+            # Use cached standard attributes to identify custom fields
+            for key, value in record.__dict__.items():
+                if not key.startswith("_") and isinstance(value, str) and key not in self._standard_attrs:
+                    redacted = redact_api_keys_in_text(value)
+                    setattr(record, key, redacted)
             return True
         except Exception:
             # In case of any failure, do not block logging

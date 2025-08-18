@@ -9,7 +9,6 @@ import math
 import time
 from typing import List, Optional, Tuple
 
-from config.schemas import Patterns
 from constant.search import (
     API_LIMIT,
     API_MAX_PAGES,
@@ -20,8 +19,15 @@ from constant.search import (
 )
 from constant.system import SERVICE_TYPE_GITHUB_API, SERVICE_TYPE_GITHUB_WEB
 from core.enums import ErrorReason, PipelineStage, ResultType
-from core.models import Service
-from core.tasks import AcquisitionTask, CheckTask, InspectTask, ProviderTask, SearchTask
+from core.models import (
+    AcquisitionTask,
+    CheckTask,
+    InspectTask,
+    Patterns,
+    ProviderTask,
+    SearchTask,
+    Service,
+)
 from core.types import IProvider
 from refine.engine import RefineEngine
 from search import client
@@ -49,7 +55,10 @@ class SearchStage(BasePipelineStage):
 
     def _generate_id(self, task: ProviderTask) -> str:
         """Generate unique task identifier for deduplication"""
-        return f"{PipelineStage.SEARCH.value}:{task.provider}:{getattr(task, 'query', '')}:{getattr(task, 'page', 1)}:{getattr(task, 'regex', '')}"
+        search_task = task if isinstance(task, SearchTask) else SearchTask()
+        return (
+            f"{PipelineStage.SEARCH.value}:{task.provider}:{search_task.query}:{search_task.page}:{search_task.regex}"
+        )
 
     def _validate_task_type(self, task: ProviderTask) -> bool:
         """Validate that task is a SearchTask."""
@@ -64,7 +73,8 @@ class SearchStage(BasePipelineStage):
             return False
 
         # Validate query
-        if not getattr(task, "query", None):
+        search_task = task if isinstance(task, SearchTask) else None
+        if not search_task or not search_task.query:
             logger.warning(f"[{self.name}] empty query for provider: {task.provider}")
             return False
 
@@ -296,7 +306,8 @@ class AcquisitionStage(BasePipelineStage):
 
     def _generate_id(self, task: ProviderTask) -> str:
         """Generate unique task identifier for deduplication"""
-        return f"{PipelineStage.GATHER.value}:{task.provider}:{getattr(task, 'url', '')}"
+        acquisition_task = task if isinstance(task, AcquisitionTask) else AcquisitionTask()
+        return f"{PipelineStage.GATHER.value}:{task.provider}:{acquisition_task.url}"
 
     def _validate_task_type(self, task: ProviderTask) -> bool:
         """Validate that task is an AcquisitionTask."""
@@ -355,8 +366,9 @@ class CheckStage(BasePipelineStage):
 
     def _generate_id(self, task: ProviderTask) -> str:
         """Generate unique task identifier for deduplication"""
-        service = getattr(task, "service", None)
-        if service:
+        check_task = task if isinstance(task, CheckTask) else None
+        if check_task and check_task.service:
+            service = check_task.service
             return f"{PipelineStage.CHECK.value}:{task.provider}:{service.key}:{service.address}:{service.endpoint}"
 
         return f"{PipelineStage.CHECK.value}:{task.provider}:unknown"
@@ -450,8 +462,9 @@ class InspectStage(BasePipelineStage):
 
     def _generate_id(self, task: ProviderTask) -> str:
         """Generate unique task identifier for deduplication"""
-        service = getattr(task, "service", None)
-        if service:
+        inspect_task = task if isinstance(task, InspectTask) else None
+        if inspect_task and inspect_task.service:
+            service = inspect_task.service
             return f"{PipelineStage.INSPECT.value}:{task.provider}:{service.key}:{service.address}"
 
         return f"{PipelineStage.INSPECT.value}:{task.provider}:unknown"

@@ -248,11 +248,11 @@ class ConfigValidator:
         Args:
             config: Configuration object to validate
         """
-        if not hasattr(config, "display") or not config.display:
+        if not config.display:
             self.errors.append("Display configuration is missing")
             return
 
-        if not hasattr(config.display, "contexts") or not config.display.contexts:
+        if not config.display.contexts:
             self.errors.append("Display contexts configuration is missing")
             return
 
@@ -266,21 +266,19 @@ class ConfigValidator:
                 prefix = f"Display config [{context_name}.{mode_name}]"
 
                 # Validate width
-                if hasattr(mode_config, "width"):
-                    if mode_config.width <= 0:
-                        self.errors.append(f"{prefix}: width must be positive")
-                    elif mode_config.width < 40:
-                        self.errors.append(f"{prefix}: width should be at least 40 characters")
-                    elif mode_config.width > 200:
-                        self.errors.append(f"{prefix}: width should not exceed 200 characters")
+                if mode_config.width <= 0:
+                    self.errors.append(f"{prefix}: width must be positive")
+                elif mode_config.width < 40:
+                    self.errors.append(f"{prefix}: width should be at least 40 characters")
+                elif mode_config.width > 200:
+                    self.errors.append(f"{prefix}: width should not exceed 200 characters")
 
                 # Validate max_alerts_per_level
-                if hasattr(mode_config, "max_alerts_per_level"):
-                    if mode_config.max_alerts_per_level <= 0:
-                        self.errors.append(f"{prefix}: max_alerts_per_level must be positive")
-                    elif mode_config.max_alerts_per_level > 20:
-                        self.errors.append(f"{prefix}: max_alerts_per_level should not exceed 20")
+                if mode_config.max_alerts_per_level <= 0:
+                    self.errors.append(f"{prefix}: max_alerts_per_level must be positive")
+                elif mode_config.max_alerts_per_level > 20:
+                    self.errors.append(f"{prefix}: max_alerts_per_level should not exceed 20")
 
                 # Validate title
-                if hasattr(mode_config, "title") and not mode_config.title.strip():
+                if not mode_config.title.strip():
                     self.errors.append(f"{prefix}: title cannot be empty")

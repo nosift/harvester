@@ -82,9 +82,8 @@ graph TB
 
     %% 核心领域层
     subgraph Core["核心领域层"]
-        Models["领域模型<br/>(core/models.py)"]
+        Models["领域模型与任务<br/>(core/models.py)"]
         Types["类型系统<br/>(core/types.py)"]
-        Tasks["任务定义<br/>(core/tasks.py)"]
         Enums["枚举<br/>(core/enums.py)"]
         Metrics["指标<br/>(core/metrics.py)"]
         Auth["身份认证<br/>(core/auth.py)"]
@@ -406,9 +405,8 @@ sequenceDiagram
    - **查询优化** (`refine/`): 智能查询优化和生成
 
 ### 4. **领域层**
-   - **核心模型** (`core/models.py`): 业务领域对象和数据结构
+   - **核心模型与任务** (`core/models.py`): 业务领域对象、数据结构和任务定义
    - **类型系统** (`core/types.py`): 接口定义和契约
-   - **任务定义** (`core/tasks.py`): 领域特定任务类型和工作流
    - **业务枚举** (`core/enums.py`): 领域枚举和常量
    - **指标分析** (`core/metrics.py`): 性能测量和KPI跟踪
    - **身份认证** (`core/auth.py`): 认证和授权逻辑
@@ -732,8 +730,7 @@ harvester/
 │   ├── enums.py      # 系统枚举
 │   ├── exceptions.py # 自定义异常
 │   ├── metrics.py    # 性能指标
-│   ├── models.py     # 核心数据模型
-│   ├── tasks.py      # 任务定义
+│   ├── models.py     # 核心数据模型与任务定义
 │   ├── types.py      # 核心类型定义
 │   └── __init__.py   # 包初始化
 ├── examples/         # 配置示例

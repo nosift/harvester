@@ -8,14 +8,12 @@ This package provides comprehensive data storage and persistence capabilities:
 - Atomic file operations with fsync
 - NDJSON shard management with rotation
 - Snapshot management for backup/restore
-- Task recovery mechanisms
 - Cross-platform file locking
 
 Key Features:
 - Thread-safe storage operations
 - Atomic writes to prevent corruption
 - Automatic shard rotation and indexing
-- Comprehensive recovery mechanisms
 - Performance-optimized batch operations
 """
 
@@ -25,8 +23,7 @@ from .atomic import AtomicFileWriter, repair_trailing_partial
 # Core persistence management
 from .persistence import MultiResultManager, ResultBuffer, ResultManager
 
-# Recovery mechanisms
-from .recovery import TaskRecoveryStrategy
+# Recovery mechanisms (moved to manager package)
 from .shard import NDJSONShardWriter
 
 # Snapshot and backup management
@@ -43,6 +40,5 @@ __all__ = [
     "repair_trailing_partial",
     # Snapshot management
     "SnapshotManager",
-    # Recovery mechanisms
-    "TaskRecoveryStrategy",
+    # Recovery mechanisms (moved to manager package)
 ]

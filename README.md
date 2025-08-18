@@ -82,9 +82,8 @@ graph TB
 
     %% Core Domain Layer
     subgraph Core["Core Domain Layer"]
-        Models["Domain Models<br/>(core/models.py)"]
+        Models["Domain Models & Tasks<br/>(core/models.py)"]
         Types["Type System<br/>(core/types.py)"]
-        Tasks["Task Definitions<br/>(core/tasks.py)"]
         Enums["Enumerations<br/>(core/enums.py)"]
         Metrics["Metrics<br/>(core/metrics.py)"]
         Auth["Authentication<br/>(core/auth.py)"]
@@ -417,9 +416,8 @@ sequenceDiagram
    - **Query Refinement** (`refine/`): Intelligent query optimization with strategy pattern and mathematical foundations
 
 ### 4. **Domain Layer**
-   - **Core Models** (`core/models.py`): Business domain objects and data structures
+   - **Core Models & Tasks** (`core/models.py`): Business domain objects, data structures, and task definitions
    - **Type System** (`core/types.py`): Interface definitions and contracts
-   - **Task Definitions** (`core/tasks.py`): Domain-specific task types and workflows
    - **Business Enums** (`core/enums.py`): Domain enumerations and constants
    - **Metrics & Analytics** (`core/metrics.py`): Performance measurement and KPI tracking
    - **Authentication** (`core/auth.py`): Authentication and authorization logic
@@ -730,8 +728,7 @@ harvester/
 │   ├── enums.py      # System enumerations
 │   ├── exceptions.py # Custom exceptions
 │   ├── metrics.py    # Performance metrics
-│   ├── models.py     # Core data models
-│   ├── tasks.py      # Task definitions
+│   ├── models.py     # Core data models & task definitions
 │   ├── types.py      # Core type definitions
 │   └── __init__.py   # Package initialization
 ├── examples/         # Configuration examples

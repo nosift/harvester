@@ -12,7 +12,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from types import MappingProxyType
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from core.enums import AlertKeyType, QueueStateStatus, SystemState
 from core.metrics import BaseMetrics, PipelineStatus, TaskMetrics
@@ -464,13 +464,38 @@ class SystemStatus(BaseMetrics):
 
 
 @dataclass
+class StageWorkerStatus:
+    """Worker statistics for a single stage"""
+
+    current_workers: int
+    target_workers: int
+    queue_size: int
+    utilization: float
+    processing_rate: float
+    last_adjustment: float
+
+
+@dataclass
+class WorkerStatus:
+    """Overall worker management statistics"""
+
+    timestamp: float
+    stages: Dict[str, StageWorkerStatus]
+    total_workers: int
+    total_target_workers: int
+    total_queue_size: int
+    status: str = "ok"
+    error: Optional[str] = None
+
+
+@dataclass
 class ApplicationStatus(SystemStatus):
     """Application-specific status extending SystemStatus"""
 
     shutdown_requested: bool = False
-    task_manager_status: Optional[Any] = None
-    monitoring_status: Optional[Any] = None
-    worker_manager_status: Optional[Any] = None
+    task_manager_status: Optional[SystemStatus] = None
+    monitoring_status: Optional[MonitoringSummary] = None
+    worker_manager_status: Optional[WorkerStatus] = None
 
 
 @dataclass

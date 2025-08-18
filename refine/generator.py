@@ -161,9 +161,7 @@ class QueryGenerator(IQueryGenerator):
 
             # Enumerate each target segment separately
             for i, target in enumerate(targets):
-                logger.debug(
-                    f"Enumerating target segment {i}: position={target.position}, value={getattr(target, 'value', 'N/A')}"
-                )
+                logger.debug(f"Enumerating target segment {i}: position={target.position}, value={target.value}")
                 target_queries = self._generate_queries_for_single_part(segments, target)
                 logger.debug(f"Generated {len(target_queries)} queries for segment {i}")
                 if target_queries:
@@ -251,7 +249,7 @@ class QueryGenerator(IQueryGenerator):
 
         # Calculate depth based on enumeration value and efficiency
         # Higher enumeration value segments deserve deeper enumeration
-        if hasattr(segment, "value") and segment.value > 0:
+        if segment.value > 0:
             # Use enumeration value to determine depth
             if segment.value > 20:  # Very high value
                 target_depth = min(4, self.max_depth)
@@ -267,8 +265,7 @@ class QueryGenerator(IQueryGenerator):
 
         # Ensure the depth makes mathematical sense
         # Don't enumerate more characters than the minimum length
-        if hasattr(segment, "min_length"):
-            target_depth = min(target_depth, segment.min_length)
+        target_depth = min(target_depth, segment.min_length)
 
         # For very small charsets, we can afford deeper enumeration
         if charset_size <= 10:
@@ -277,8 +274,7 @@ class QueryGenerator(IQueryGenerator):
             target_depth = max(1, target_depth - 1)
 
         logger.debug(
-            f"Calculated optimal depth {target_depth} for charset_size={charset_size}, "
-            f"value={getattr(segment, 'value', 0):.3f}"
+            f"Calculated optimal depth {target_depth} for charset_size={charset_size}, " f"value={segment.value:.3f}"
         )
 
         return target_depth
@@ -326,10 +322,11 @@ class QueryGenerator(IQueryGenerator):
                 new_group = GroupSegment()
                 new_group.position = segment.position
                 new_group.capturing = segment.capturing
-                if hasattr(segment, "original_prefix"):
-                    new_group.original_prefix = segment.original_prefix
-                if hasattr(segment, "quantifier"):
-                    new_group.quantifier = segment.quantifier
+                # Copy dynamic attributes if they exist
+                if original_prefix := getattr(segment, "original_prefix", None):
+                    new_group.original_prefix = original_prefix
+                if quantifier := getattr(segment, "quantifier", None):
+                    new_group.quantifier = quantifier
                 new_group.content = self._apply_single_enumeration(segment.content, target, enum_value)
                 new_segments.append(new_group)
             elif isinstance(segment, OptionalSegment):
@@ -448,14 +445,14 @@ class QueryGenerator(IQueryGenerator):
                         group_str = f"({group_content})"
                     else:
                         # Preserve original group structure including special flags
-                        if hasattr(segment, "original_prefix") and segment.original_prefix:
-                            group_str = f"({segment.original_prefix}{group_content})"
+                        if original_prefix := getattr(segment, "original_prefix", None):
+                            group_str = f"({original_prefix}{group_content})"
                         else:
                             group_str = f"(?:{group_content})"
 
                     # Add quantifier if present
-                    if hasattr(segment, "quantifier") and segment.quantifier:
-                        group_str += segment.quantifier
+                    if quantifier := getattr(segment, "quantifier", None):
+                        group_str += quantifier
 
                     result += group_str
                 elif isinstance(segment, OptionalSegment):
@@ -540,8 +537,8 @@ class QueryGenerator(IQueryGenerator):
     def _reconstruct_charclass(self, segment: CharClassSegment) -> str:
         """Reconstruct character class pattern preserving original escapes."""
         # Always use original charset string to preserve escapes like \-
-        if hasattr(segment, "original_charset_str") and segment.original_charset_str:
-            charset_part = segment.original_charset_str
+        if original_charset_str := getattr(segment, "original_charset_str", None):
+            charset_part = original_charset_str
         else:
             # Fallback to reconstructing from charset with proper escaping
             charset = sorted(list(segment.charset))
@@ -572,8 +569,8 @@ class QueryGenerator(IQueryGenerator):
             charset_part = f"[{class_content}]"
 
         # Always use original quantifier to preserve exact format
-        if hasattr(segment, "original_quantifier") and segment.original_quantifier:
-            quantifier = segment.original_quantifier
+        if original_quantifier := getattr(segment, "original_quantifier", None):
+            quantifier = original_quantifier
         else:
             # Fallback quantifier reconstruction
             if segment.min_length == segment.max_length:

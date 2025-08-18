@@ -13,7 +13,7 @@ import threading
 import time
 import traceback
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, List, Optional
 
 import yaml
 
@@ -22,11 +22,11 @@ from config.defaults import get_default_config
 from config.schemas import Config, WorkerManagerConfig
 from constant.system import (
     DEFAULT_CONFIG_FILE,
-    DEFAULT_SHUTDOWN_TIMEOUT,
     DEFAULT_STATS_INTERVAL,
     FORCE_EXIT_GRACE_PERIOD,
 )
 from core.enums import PipelineStage, SystemState
+from manager.base import LifecycleManager
 from manager.shutdown import ShutdownCoordinator
 from manager.status import StatusManager
 from manager.task import TaskManager
@@ -42,7 +42,7 @@ from tools.utils import handle_exceptions
 logger = get_logger("main")
 
 
-class AsyncPipelineApplication:
+class HarvesterApp:
     """Main application class for the async pipeline system"""
 
     def __init__(self, config_path: str = DEFAULT_CONFIG_FILE) -> None:
@@ -136,12 +136,12 @@ class AsyncPipelineApplication:
             logger.info("Status manager initialized as scheduling entry point")
 
             # Initialize shutdown coordinator
-            components = [self.task_manager, self.status_manager]
+            components: List[LifecycleManager] = [self.task_manager, self.status_manager]
             if self.worker_manager:
                 components.append(self.worker_manager)
             self.shutdown_coordinator = ShutdownCoordinator(
                 components=components,
-                shutdown_timeout=float(getattr(self.config.persistence, "shutdown_timeout", DEFAULT_SHUTDOWN_TIMEOUT)),
+                shutdown_timeout=float(self.config.persistence.shutdown_timeout),
                 monitor_interval=self.config.monitoring.update_interval,
             )
             logger.info("Shutdown coordinator initialized")
@@ -236,11 +236,8 @@ class AsyncPipelineApplication:
             if not self.running:
                 return
 
-            logger.info("Starting graceful shutdown...")
             self.running = False
             self.shutdown_event.set()
-
-            # Status display will be stopped with monitoring system
 
             # Use shutdown coordinator for graceful component shutdown
             if self.shutdown_coordinator:
@@ -255,21 +252,20 @@ class AsyncPipelineApplication:
 
     def _fallback_shutdown(self) -> None:
         """Fallback shutdown method when coordinator is not available"""
-        components = [
-            ("task manager", self.task_manager),
-            ("worker manager", self.worker_manager),
-            ("monitoring", self.monitoring),
+        components: List[LifecycleManager] = [
+            self.task_manager,
+            self.worker_manager,
+            self.status_manager,
         ]
 
-        for name, component in components:
-            if component:
+        for component in components:
+            if component and component.is_running:
                 try:
-                    logger.info(f"Stopping {name}")
-                    if hasattr(component, "stop"):
-                        component.stop()
-                    logger.info(f"{name} stopped")
+                    logger.info(f"Stopping {component.name}")
+                    component.stop()
+                    logger.info(f"{component.name} stopped")
                 except Exception as e:
-                    logger.error(f"Error stopping {name}: {e}")
+                    logger.error(f"Error stopping {component.name}: {e}")
 
     def _force_exit(self) -> None:
         """Force exit the application"""
@@ -489,7 +485,10 @@ Examples:
     init_logging(args.log_level)
 
     # Create and configure application
-    app = AsyncPipelineApplication(args.config)
+    app = HarvesterApp(args.config)
+
+    # Set stats interval from command line
+    app.stats_interval = args.stats_interval
 
     try:
         logger.info("Starting Async Pipeline Application")

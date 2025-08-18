@@ -166,7 +166,7 @@ class SplittabilityAnalyzer(ISplittabilityAnalyzer):
                     enumerable.append(segment)
             elif isinstance(segment, (GroupSegment, OptionalSegment)):
                 # Add nested segments to stack
-                if hasattr(segment, "content") and segment.content:
+                if segment.content:
                     stack.extend(segment.content)
 
         return enumerable
@@ -178,7 +178,7 @@ class SplittabilityAnalyzer(ISplittabilityAnalyzer):
         Time complexity: O(1).
         """
         # Must have charset
-        if not hasattr(segment, "charset") or not segment.charset:
+        if not segment.charset:
             return False
 
         charset_size = len(segment.charset)
@@ -192,17 +192,16 @@ class SplittabilityAnalyzer(ISplittabilityAnalyzer):
         if charset_size > 128:  # ASCII limit
             return False
 
-        # Check length constraints if available
-        if hasattr(segment, "min_length") and hasattr(segment, "max_length"):
-            max_len = getattr(segment, "max_length", float("inf"))
+        # Check length constraints
+        max_len = segment.max_length
 
-            # Zero-length segments don't contribute to enumeration
-            if max_len == 0:
-                return False
+        # Zero-length segments don't contribute to enumeration
+        if max_len == 0:
+            return False
 
-            # Only check if the segment can contribute at least one character for enumeration
-            # Even if min_len is very large, we can still enumerate the first few positions
-            # The remaining length will be reduced accordingly (e.g., min_len=100 -> min_len=98 after enumerating 2 chars)
+        # Only check if the segment can contribute at least one character for enumeration
+        # Even if min_len is very large, we can still enumerate the first few positions
+        # The remaining length will be reduced accordingly (e.g., min_len=100 -> min_len=98 after enumerating 2 chars)
 
         return True
 
@@ -234,21 +233,20 @@ class SplittabilityAnalyzer(ISplittabilityAnalyzer):
 
         for segment in segments:
             if isinstance(segment, CharClassSegment):
-                charset_size = len(getattr(segment, "charset", set()))
+                charset_size = len(segment.charset)
                 if charset_size <= 1:
                     continue  # No contribution to search space
 
                 # Estimate average length for quantified segments
                 avg_length = 1.0
-                if hasattr(segment, "min_length") and hasattr(segment, "max_length"):
-                    min_len = getattr(segment, "min_length", 1)
-                    max_len = getattr(segment, "max_length", float("inf"))
+                min_len = segment.min_length
+                max_len = segment.max_length
 
-                    if max_len == float("inf"):
-                        # Conservative estimate for unbounded quantifiers
-                        avg_length = max(min_len, 3)  # Reasonable default
-                    else:
-                        avg_length = (min_len + max_len) / 2
+                if max_len == float("inf"):
+                    # Conservative estimate for unbounded quantifiers
+                    avg_length = max(min_len, 3)  # Reasonable default
+                else:
+                    avg_length = (min_len + max_len) / 2
 
                 # Add log(charset_size^avg_length) = avg_length * log(charset_size)
                 if charset_size > 1:  # Ensure we have valid charset
@@ -261,7 +259,7 @@ class SplittabilityAnalyzer(ISplittabilityAnalyzer):
 
             elif isinstance(segment, GroupSegment):
                 # Groups: process inner content (simplified)
-                if hasattr(segment, "content") and segment.content:
+                if segment.content:
                     log_total += self._calc_log_search_space(segment.content)
 
         return log_total
@@ -286,7 +284,7 @@ class SplittabilityAnalyzer(ISplittabilityAnalyzer):
         # 3. We're only enumerating a few positions
 
         # Base benefit from charset reduction
-        enum_positions = min(3, getattr(segment, "min_length", 1))
+        enum_positions = min(3, segment.min_length)
 
         # Benefit calculation favors smaller charsets for enumeration
         # Larger charsets are harder to enumerate effectively
@@ -312,17 +310,14 @@ class SplittabilityAnalyzer(ISplittabilityAnalyzer):
 
     def _calc_context_value(self, segment: CharClassSegment, all_segments: List[Segment]) -> float:
         """Calculate how much fixed context surrounds this segment."""
-        if not hasattr(segment, "position"):
-            return 0.0
-
         position = segment.position
         context_value = 0.0
 
         # Count fixed content before and after this segment
         for other_segment in all_segments:
             if isinstance(other_segment, FixedSegment):
-                other_pos = getattr(other_segment, "position", 0)
-                content_len = len(getattr(other_segment, "content", ""))
+                other_pos = other_segment.position
+                content_len = len(other_segment.content)
 
                 # Weight nearby fixed content more heavily
                 distance = abs(other_pos - position)
@@ -337,7 +332,7 @@ class SplittabilityAnalyzer(ISplittabilityAnalyzer):
 
         for seg in segments:
             # Use cached value if available
-            if hasattr(seg, "value") and seg.value > 0:
+            if seg.value > 0:
                 total_value += seg.value
             else:
                 # Fast estimation based on charset size and position
@@ -347,9 +342,8 @@ class SplittabilityAnalyzer(ISplittabilityAnalyzer):
                     base_value = math.log(charset_size)
 
                     # Boost for segments with good context (position-based heuristic)
-                    if hasattr(seg, "position"):
-                        position_boost = min(seg.position * 0.1, 1.0)
-                        base_value *= 1 + position_boost
+                    position_boost = min(seg.position * 0.1, 1.0)
+                    base_value *= 1 + position_boost
 
                     total_value += base_value
 
@@ -369,12 +363,11 @@ class SplittabilityAnalyzer(ISplittabilityAnalyzer):
             base_cost = math.log(charset_size + 1)
 
             # Length complexity cost
-            if hasattr(seg, "max_length"):
-                max_len = getattr(seg, "max_length", 1)
-                if max_len == float("inf"):
-                    base_cost += 3.0  # High cost for unbounded
-                else:
-                    base_cost += math.log(max_len + 1) * 0.5
+            max_len = seg.max_length
+            if max_len == float("inf"):
+                base_cost += 3.0  # High cost for unbounded
+            else:
+                base_cost += math.log(max_len + 1) * 0.5
 
             total_cost += base_cost
 

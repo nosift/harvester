@@ -12,7 +12,7 @@ from config.schemas import Config
 from core.auth import configure_auth, get_auth_provider
 from core.enums import PipelineStage, SystemState
 from core.metrics import PipelineStatus
-from core.tasks import ProviderTask
+from core.models import ProviderTask
 from core.types import IPipelineStats, IProvider
 from search import client
 from stage.base import BasePipelineStage, StageOutput, StageResources, StageUtils
@@ -54,7 +54,7 @@ class Pipeline(IPipelineStats, StageRegistryMixin, LifecycleManager):
             batch_size=config.persistence.batch_size,
             save_interval=config.persistence.save_interval,
             simple=config.persistence.simple,
-            shutdown_timeout=float(getattr(config.persistence, "shutdown_timeout", 30)),
+            shutdown_timeout=float(config.persistence.shutdown_timeout),
         )
 
         self.rate_limiter = RateLimiter(config.ratelimits)
@@ -65,7 +65,7 @@ class Pipeline(IPipelineStats, StageRegistryMixin, LifecycleManager):
         self.queue_manager = QueueManager(
             workspace=config.global_config.workspace,
             save_interval=config.persistence.queue_interval,
-            shutdown_timeout=float(getattr(config.persistence, "shutdown_timeout", 30)),
+            shutdown_timeout=float(config.persistence.shutdown_timeout),
         )
 
         # Start periodic snapshots for results
@@ -224,15 +224,15 @@ class Pipeline(IPipelineStats, StageRegistryMixin, LifecycleManager):
         return all_finished
 
     def get_all_stats(self) -> PipelineStatus:
-        """Get statistics for all stages (interface compliance)"""
+        """Get statistics for all stages"""
         return self._get_pipeline_status()
 
     def get_dynamic_stats(self) -> PipelineStatus:
-        """Get dynamic statistics for all stages (interface compliance)"""
+        """Get dynamic statistics for all stages"""
         return self._get_pipeline_status()
 
     def _get_pipeline_status(self) -> PipelineStatus:
-        """Get pipeline status as PipelineStatus object (internal use)"""
+        """Get pipeline status as PipelineStatus object"""
         stage_status = {}
 
         # Collect stats from all active stages
@@ -248,10 +248,6 @@ class Pipeline(IPipelineStats, StageRegistryMixin, LifecycleManager):
         )
 
         return pipeline_status
-
-    def get_pipeline_status(self) -> PipelineStatus:
-        """Get pipeline status as PipelineStatus object (public API)"""
-        return self._get_pipeline_status()
 
     def add_initial_tasks(self, initial_tasks: List[ProviderTask]) -> None:
         """Add initial search tasks to pipeline"""
@@ -299,7 +295,8 @@ class Pipeline(IPipelineStats, StageRegistryMixin, LifecycleManager):
 
         # Route new tasks
         for task, target_stage in output.new_tasks:
-            if self._stage_enabled(task.provider, target_stage):
+            config = self.task_configs.get(task.provider)
+            if config and StageUtils.check(config, target_stage):
                 stage = self.stages.get(target_stage)
                 if stage:
                     stage.put_task(task)
@@ -307,13 +304,6 @@ class Pipeline(IPipelineStats, StageRegistryMixin, LifecycleManager):
                     logger.warning(f"Target stage {target_stage} not found for task {task.provider}")
             else:
                 logger.debug(f"Stage {target_stage} disabled for {task.provider}, skipping task")
-
-    def _stage_enabled(self, provider: str, stage: str) -> bool:
-        """Check if stage is enabled for provider"""
-        config = self.task_configs.get(provider)
-        if not config:
-            return False
-        return getattr(config.stages, stage, False)
 
     def _can_stage_stop_accepting(self, stage_name: str) -> bool:
         """Check if a stage can stop accepting new tasks based on precise conditions"""
@@ -331,8 +321,7 @@ class Pipeline(IPipelineStats, StageRegistryMixin, LifecycleManager):
             return False
 
         # Check condition 2: No workers are actively processing tasks
-        active_workers = getattr(stage, "active_workers", 0)
-        if active_workers > 0:
+        if stage.active_workers > 0:
             return False
 
         # Check condition 3: All upstream producers are finished
@@ -354,8 +343,7 @@ class Pipeline(IPipelineStats, StageRegistryMixin, LifecycleManager):
                 # Upstream stage must be finished (queue empty + no active workers)
                 if not upstream_stage.queue.empty():
                     return False
-                upstream_active_workers = getattr(upstream_stage, "active_workers", 0)
-                if upstream_active_workers > 0:
+                if upstream_stage.active_workers > 0:
                     return False
                 # Also check if upstream is still accepting (could generate more tasks)
                 if upstream_stage.accepting:

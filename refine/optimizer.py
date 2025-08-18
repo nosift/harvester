@@ -386,11 +386,9 @@ class EnumerationOptimizer(IEnumerationOptimizer):
 
     def _get_segment_cache_key(self, segment: Segment) -> str:
         """Generate cache key for segment scoring"""
-        if hasattr(segment, "content"):
+        if isinstance(segment, (FixedSegment, GroupSegment, OptionalSegment)):
             return f"{type(segment).__name__}:{segment.content}"
-        elif hasattr(segment, "pattern"):
-            return f"{type(segment).__name__}:{segment.pattern}"
-        elif hasattr(segment, "value"):
+        elif isinstance(segment, CharClassSegment):
             return f"{type(segment).__name__}:{segment.value}"
         else:
             return f"{type(segment).__name__}:{str(segment)}"
@@ -433,7 +431,7 @@ class EnumerationOptimizer(IEnumerationOptimizer):
         # Add points for variable segments with good enumeration potential
         for segment in variant:
             if isinstance(segment, CharClassSegment):
-                if hasattr(segment, "value"):
+                if segment.value > 0:
                     score += segment.value
                 else:
                     # Estimate value based on charset size and length

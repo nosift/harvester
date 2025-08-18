@@ -7,9 +7,11 @@ Manages component shutdown sequence and completion monitoring.
 
 import threading
 import time
-from typing import Any, List, Optional
+from typing import List, Optional
 
 from tools.logger import get_logger
+
+from .base import LifecycleManager
 
 logger = get_logger("manager")
 
@@ -19,7 +21,7 @@ class ShutdownCoordinator:
 
     def __init__(
         self,
-        components: List[Any],
+        components: List[LifecycleManager],
         shutdown_timeout: float = 30.0,
         monitor_interval: float = 2.0,
     ):
@@ -85,7 +87,7 @@ class ShutdownCoordinator:
                 # Check if all components are finished
                 all_finished = True
                 for component in self.components:
-                    if hasattr(component, "is_finished") and not component.is_finished():
+                    if not component.is_finished():
                         all_finished = False
                         break
 
@@ -118,29 +120,18 @@ class ShutdownCoordinator:
 
         success = True
         for i, component in enumerate(self.components):
-            component_name = getattr(component, "__class__", type(component)).__name__
+            component_name = component.__class__.__name__
 
             try:
                 logger.info(f"Stopping component {i+1}/{len(self.components)}: {component_name}")
-
-                if hasattr(component, "stop"):
-                    component.stop()
-                elif hasattr(component, "shutdown"):
-                    component.shutdown()
-                else:
-                    logger.warning(f"Component {component_name} has no stop/shutdown method")
-                    continue
+                component.stop()
 
                 # Wait for component to stop
                 timeout_start = time.time()
                 while time.time() - timeout_start < component_timeout:
                     # Check if component is still running
-                    if hasattr(component, "is_running"):
-                        is_running = component.is_running
-                        if callable(is_running):
-                            is_running = is_running()
-                        if not is_running:
-                            break
+                    if not component.is_running:
+                        break
                     time.sleep(0.1)
                 else:
                     logger.warning(f"Component {component_name} did not stop within timeout")

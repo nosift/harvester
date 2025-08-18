@@ -14,8 +14,7 @@ from typing import Callable, Dict, List, Optional, Set
 import constant
 from config import load_config
 from config.schemas import Config, TaskConfig
-from core.models import Condition, Patterns, TaskRecoveryInfo
-from core.tasks import ProviderTask, SearchTask
+from core.models import Condition, Patterns, ProviderTask, SearchTask, TaskRecoveryInfo
 from core.types import IProvider
 from search import client
 from search.provider.base import AIBaseProvider
@@ -25,13 +24,13 @@ from stage.factory import TaskFactory
 from state.builder import StatusBuilder
 from state.models import ProviderStatus, SystemState, SystemStatus
 from state.types import TaskDataProvider
-from storage.recovery import TaskRecoveryStrategy
 from tools.coordinator import get_session, get_token
 from tools.logger import get_logger
 from tools.utils import get_service_name, handle_exceptions
 
 from .base import LifecycleManager
 from .pipeline import Pipeline
+from .recovery import TaskRecoveryManager
 
 logger = get_logger("manager")
 
@@ -99,8 +98,8 @@ class ProviderFactory:
                 {
                     "name": name,
                     "base_url": api_config.base_url,
-                    "completion_path": getattr(api_config, "completion_path", ""),
-                    "model_path": getattr(api_config, "model_path", ""),
+                    "completion_path": api_config.completion_path,
+                    "model_path": api_config.model_path,
                 }
             )
 
@@ -398,7 +397,7 @@ class TaskManager(LifecycleManager, TaskDataProvider):
         """Add recovered tasks using enhanced TaskRecoveryStrategy"""
 
         # Use TaskRecoveryStrategy for type-safe, maintainable task recovery
-        recovery_strategy = TaskRecoveryStrategy(self.pipeline, self.providers)
+        recovery_strategy = TaskRecoveryManager(self.pipeline, self.providers)
 
         # Recover queue tasks using enhanced strategy
         recovery_strategy.recover_queue_tasks(recovery_info.queue_tasks)
@@ -425,7 +424,7 @@ class TaskManager(LifecycleManager, TaskDataProvider):
                     continue
 
                 config = self._get_config(task.provider)
-                if config and self._stage_enabled(config, stage):
+                if config and StageUtils.check(config, stage):
                     valid_tasks.append(task)
                 else:
                     logger.debug(f"Skipping recovery of {stage} task for provider {task.provider} - stage disabled")
@@ -438,10 +437,6 @@ class TaskManager(LifecycleManager, TaskDataProvider):
     def _get_config(self, provider: str) -> Optional[TaskConfig]:
         """Get task config for provider"""
         return next((t for t in self.config.tasks if t.name == provider), None)
-
-    def _stage_enabled(self, config: TaskConfig, stage: str) -> bool:
-        """Check if stage is enabled for task"""
-        return getattr(config.stages, stage, False)
 
 
 def create_task_manager(config_file: str = constant.DEFAULT_CONFIG_FILE) -> TaskManager:

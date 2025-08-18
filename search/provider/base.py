@@ -10,7 +10,7 @@ import urllib.parse
 from typing import Dict, List, Optional, Union
 
 from core.enums import ErrorReason
-from core.models import CheckResult, Condition
+from core.models import CheckResult, Condition, Patterns
 from core.types import IProvider
 from tools.logger import get_logger
 from tools.utils import trim
@@ -171,3 +171,12 @@ class AIBaseProvider(IProvider):
     def conditions(self) -> List:
         """Search conditions for this provider"""
         return self._conditions
+
+    def get_patterns(self) -> Patterns:
+        """Get patterns configuration for this provider"""
+        # Extract patterns from the first condition if available
+        if self._conditions:
+            return self._conditions[0].patterns
+
+        # Return empty patterns if no conditions
+        return Patterns()

@@ -11,13 +11,24 @@ import time
 from abc import ABC, abstractmethod
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Protocol,
+    Tuple,
+    Union,
+    runtime_checkable,
+)
 
 from config.schemas import Config, StageConfig, TaskConfig
 from constant.system import DEFAULT_SHUTDOWN_TIMEOUT
+from core.enums import PipelineStage
 from core.metrics import StageMetrics
-from core.tasks import ProviderTask
-from core.types import IAuthProvider
+from core.models import ProviderTask
+from core.types import IAuthProvider, IProvider
 from tools.logger import get_logger
 from tools.ratelimit import RateLimiter
 from tools.retry import ExponentialBackoff, RetryPolicy
@@ -30,9 +41,9 @@ class StageResources:
     """Resources injected into stages for dependency inversion"""
 
     limiter: RateLimiter
-    providers: Dict[str, Any]
+    providers: Dict[str, IProvider]
     config: Config
-    task_configs: Dict[str, Any]
+    task_configs: Dict[str, TaskConfig]
     auth: IAuthProvider
 
     def is_enabled(self, provider: str, stage: str) -> bool:
@@ -40,7 +51,7 @@ class StageResources:
         config = self.task_configs.get(provider)
         if not config:
             return False
-        return getattr(config.stages, stage, False)
+        return StageUtils.check(config, stage)
 
 
 @dataclass
@@ -74,7 +85,38 @@ class StageOutput:
 OutputHandler = Callable[[StageOutput], None]
 
 
-class BasePipelineStage(ABC):
+@runtime_checkable
+class WorkerManageable(Protocol):
+    """Protocol for stages that support dynamic worker management"""
+
+    def adjust_workers(self, count: int) -> bool:
+        """Adjust worker count for this stage
+
+        Args:
+            count: Target number of workers
+
+        Returns:
+            bool: True if adjustment was successful
+        """
+        ...
+
+    def set_worker_count(self, count: int) -> bool:
+        """Set worker count for this stage
+
+        Args:
+            count: Target number of workers
+
+        Returns:
+            bool: True if setting was successful
+        """
+        ...
+
+    def get_worker_count(self) -> int:
+        """Get current number of workers"""
+        ...
+
+
+class BasePipelineStage(ABC, WorkerManageable):
     """Base class for pipeline stages with hybrid architecture support"""
 
     def __init__(
@@ -170,7 +212,7 @@ class BasePipelineStage(ABC):
             if worker.is_alive():
                 worker.join(timeout=worker_timeout / max(len(self.workers), 1))
                 if worker.is_alive():
-                    worker_name = getattr(worker, "name", f"worker-{id(worker)}")
+                    worker_name = worker.name if hasattr(worker, "name") else f"worker-{id(worker)}"
                     alive_workers.append(worker_name)
 
         # Track zombie threads for monitoring
@@ -281,6 +323,43 @@ class BasePipelineStage(ABC):
     def stop_accepting(self) -> None:
         """Stop accepting new tasks"""
         self.accepting = False
+
+    def get_worker_count(self) -> int:
+        """Get current number of workers"""
+        return len(self.workers)
+
+    def adjust_workers(self, count: int) -> bool:
+        """Adjust worker count for this stage
+
+        Args:
+            count: Target number of workers
+
+        Returns:
+            bool: True if adjustment was successful
+        """
+        if count < 0:
+            logger.warning(f"[{self.name}] invalid worker count: {count}")
+            return False
+
+        current_count = len(self.workers)
+        if count == current_count:
+            return True
+
+        if count > current_count:
+            return self._add_workers(count - current_count)
+        else:
+            return self._remove_workers(current_count - count)
+
+    def set_worker_count(self, count: int) -> bool:
+        """Set worker count for this stage
+
+        Args:
+            count: Target number of workers
+
+        Returns:
+            bool: True if setting was successful
+        """
+        return self.adjust_workers(count)
 
     def process_task(self, task: ProviderTask) -> Optional[StageOutput]:
         """Template method for task processing with common workflow."""
@@ -400,6 +479,70 @@ class BasePipelineStage(ABC):
         with self.work_lock:
             return self.active_workers > 0
 
+    def _add_workers(self, count: int) -> bool:
+        """Add new worker threads
+
+        Args:
+            count: Number of workers to add
+
+        Returns:
+            bool: True if workers were added successfully
+        """
+        if not self.running:
+            logger.warning(f"[{self.name}] cannot add workers: stage not running")
+            return False
+
+        try:
+            current_worker_count = len(self.workers)
+            for i in range(count):
+                worker_id = current_worker_count + i + 1
+                worker = threading.Thread(target=self._worker_loop, name=f"{self.name}-worker-{worker_id}", daemon=True)
+                worker.start()
+                self.workers.append(worker)
+
+            logger.info(f"[{self.name}] added {count} workers (total: {len(self.workers)})")
+            return True
+
+        except Exception as e:
+            logger.error(f"[{self.name}] failed to add workers: {e}")
+            return False
+
+    def _remove_workers(self, count: int) -> bool:
+        """Remove worker threads gracefully
+
+        Args:
+            count: Number of workers to remove
+
+        Returns:
+            bool: True if workers were removed successfully
+        """
+        if count <= 0:
+            return True
+
+        # Don't remove more workers than we have
+        count = min(count, len(self.workers))
+        if count == 0:
+            return True
+
+        try:
+            # Mark workers for removal by reducing the worker list
+            # The actual threads will finish their current tasks and exit naturally
+            workers_to_remove = self.workers[-count:]
+            self.workers = self.workers[:-count]
+
+            # Wait for removed workers to finish with timeout
+            timeout_per_worker = 2.0
+            for worker in workers_to_remove:
+                if worker.is_alive():
+                    worker.join(timeout=timeout_per_worker)
+
+            logger.info(f"[{self.name}] removed {count} workers (total: {len(self.workers)})")
+            return True
+
+        except Exception as e:
+            logger.error(f"[{self.name}] failed to remove workers: {e}")
+            return False
+
 
 class StageUtils:
     """Stage configuration utility class"""
@@ -408,7 +551,7 @@ class StageUtils:
 
     @classmethod
     def get_names(cls) -> List[str]:
-        """Get all possible stage names (cached)"""
+        """Get all possible stage names"""
         if cls._names_cache is None:
             names = []
 
@@ -433,22 +576,106 @@ class StageUtils:
 
     @classmethod
     def get_enabled(cls, config: TaskConfig) -> List[str]:
-        """Get enabled stages from task config"""
-        enabled = []
-        for name in cls.get_names():
-            if getattr(config.stages, name, False):
-                enabled.append(name)
-        return enabled
-
-    @classmethod
-    def get_info(cls, config: TaskConfig) -> Dict[str, bool]:
-        """Get stage status dictionary"""
-        info = {}
-        for name in cls.get_names():
-            info[name] = getattr(config.stages, name, False)
-        return info
+        """Get enabled stage names from task config (based on list())"""
+        return [stage.value for stage in cls._list(config)]
 
     @classmethod
     def clear_cache(cls) -> None:
         """Clear cached stage names (for testing)"""
         cls._names_cache = None
+
+    @classmethod
+    def check(cls, config: TaskConfig, stage: Union[PipelineStage, str]) -> bool:
+        """Check if stage is enabled in configuration
+
+        Args:
+            config: Task configuration to check
+            stage: Stage to check (PipelineStage enum or string name)
+
+        Returns:
+            bool: True if stage is enabled, False otherwise
+        """
+        if not config or not config.stages:
+            return False
+
+        # Convert stage to attribute name
+        attr_name = cls._get_attr_name(stage)
+        if not attr_name:
+            return False
+
+        # Use dynamic attribute access to avoid hardcoding
+        return getattr(config.stages, attr_name, False)
+
+    @classmethod
+    def _list(cls, config: TaskConfig) -> List[PipelineStage]:
+        """Get list of enabled stages as PipelineStage enums
+
+        Args:
+            config: Task configuration to check
+
+        Returns:
+            List[PipelineStage]: List of enabled stages
+        """
+        if not config or not config.stages:
+            return []
+
+        enabled_stages = []
+        for stage_enum in PipelineStage:
+            if getattr(config.stages, stage_enum.value, False):
+                enabled_stages.append(stage_enum)
+
+        return enabled_stages
+
+    @classmethod
+    def all(cls, config: TaskConfig, stages: List[Union[PipelineStage, str]]) -> bool:
+        """Check if all specified stages are enabled
+
+        Args:
+            config: Task configuration to check
+            stages: List of stages to check
+
+        Returns:
+            bool: True if all stages are enabled, False otherwise
+        """
+        if not stages:
+            return True
+
+        return all(cls.check(config, stage) for stage in stages)
+
+    @classmethod
+    def any(cls, config: TaskConfig, stages: List[Union[PipelineStage, str]]) -> bool:
+        """Check if any of the specified stages are enabled
+
+        Args:
+            config: Task configuration to check
+            stages: List of stages to check
+
+        Returns:
+            bool: True if any stage is enabled, False otherwise
+        """
+        if not stages:
+            return False
+
+        return any(cls.check(config, stage) for stage in stages)
+
+    @classmethod
+    def _get_attr_name(cls, stage: Union[PipelineStage, str]) -> str:
+        """Convert stage to StageConfig attribute name
+
+        Args:
+            stage: Stage as enum or string
+
+        Returns:
+            str: Attribute name or empty string if invalid
+        """
+        if isinstance(stage, PipelineStage):
+            return stage.value
+        elif isinstance(stage, str):
+            # Validate that the string is a valid stage name
+            try:
+                PipelineStage(stage)
+                return stage
+            except ValueError:
+                return ""
+        else:
+            return ""

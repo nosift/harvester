@@ -7,7 +7,7 @@ This package contains the core business logic and domain models for the retrieva
 It focuses on the essential functionality without infrastructure concerns.
 
 Architecture:
-- models.py: Core data models and business entities (includes typed models)
+- models.py: Core data models, business entities, and task definitions
 - types.py: Domain-specific types and interfaces
 - exceptions.py: Business-specific exceptions
 - enums.py: Domain enumerations
@@ -35,17 +35,18 @@ from .exceptions import (  # Base exceptions; Specific exceptions
     RetrievalError,
     ValidationError,
 )
-from .models import HealthStatus, LogFileInfo, LoggingStats, ResourceUsage
-
-# Core tasks
-from .tasks import (  # Task types; Result types; Task types; Result types
+from .models import (  # Core models; Task types; Result types
     AcquisitionTask,
     AcquisitionTaskResult,
     CheckTask,
     CheckTaskResult,
+    HealthStatus,
     InspectTask,
     InspectTaskResult,
+    LogFileInfo,
+    LoggingStats,
     ProviderTask,
+    ResourceUsage,
     SearchTask,
     SearchTaskResult,
 )
@@ -85,7 +86,7 @@ __all__ = [
     "IPipelineStats",
     "IProvider",
     "IAuthProvider",
-    # Core tasks
+    # Task types and results
     "ProviderTask",
     "SearchTask",
     "AcquisitionTask",

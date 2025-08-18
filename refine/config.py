@@ -32,20 +32,32 @@ class RefineEngineConfig:
     def _validate(self):
         """Validate configuration values."""
         # Validate positive integers
-        for field_name in ["max_queries", "max_depth", "max_quantifier_length", "max_recursion_depth"]:
-            value = getattr(self, field_name)
+        integer_fields = {
+            "max_queries": self.max_queries,
+            "max_depth": self.max_depth,
+            "max_quantifier_length": self.max_quantifier_length,
+            "max_recursion_depth": self.max_recursion_depth,
+        }
+        for field_name, value in integer_fields.items():
             if not isinstance(value, int) or value <= 0:
                 raise ValueError(f"Configuration '{field_name}' must be a positive integer, got: {value}")
 
         # Validate positive floats
-        for field_name in ["min_enumeration_value", "max_resource_cost"]:
-            value = getattr(self, field_name)
+        float_fields = {
+            "min_enumeration_value": self.min_enumeration_value,
+            "max_resource_cost": self.max_resource_cost,
+        }
+        for field_name, value in float_fields.items():
             if not isinstance(value, (int, float)) or value <= 0:
                 raise ValueError(f"Configuration '{field_name}' must be a positive number, got: {value}")
 
         # Validate booleans
-        for field_name in ["enable_recursion_limit", "enable_value_threshold", "enable_resource_limit"]:
-            value = getattr(self, field_name)
+        boolean_fields = {
+            "enable_recursion_limit": self.enable_recursion_limit,
+            "enable_value_threshold": self.enable_value_threshold,
+            "enable_resource_limit": self.enable_resource_limit,
+        }
+        for field_name, value in boolean_fields.items():
             if not isinstance(value, bool):
                 raise ValueError(f"Configuration '{field_name}' must be a boolean, got: {value}")
 

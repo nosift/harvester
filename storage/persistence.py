@@ -13,7 +13,7 @@ import tempfile
 import threading
 import time
 from collections import deque
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from constant.runtime import RESULT_MAPPINGS
 from core.enums import ResultType
@@ -62,7 +62,7 @@ class ResultBuffer:
             self._total_flushes += 1
             return items
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> Dict[str, Union[str, int, float]]:
         """Get buffer statistics"""
         with self.lock:
             return {
@@ -132,7 +132,7 @@ class ResultManager:
         }
 
         # Models data (not buffered, updated directly)
-        self.models_data: Dict[str, Any] = {}
+        self.models_data: Dict[str, List[str]] = {}
 
         # Statistics
         self.stats = PersistenceMetrics()
@@ -493,7 +493,7 @@ class ResultManager:
             return {}
         return self.snapshot_manager.build_all_snapshots()
 
-    def _deserialize_service(self, line: str) -> Optional[Any]:
+    def _deserialize_service(self, line: str) -> Optional[Service]:
         """Deserialize service object from string"""
         try:
             return Service.deserialize(line)
@@ -621,7 +621,7 @@ class MultiResultManager:
     def __init__(
         self,
         workspace: str,
-        providers: Dict[str, Any] = None,
+        providers: Dict[str, IProvider] = None,
         batch_size: int = 50,
         save_interval: float = 30.0,
         simple: bool = False,

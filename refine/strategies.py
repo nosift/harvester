@@ -28,7 +28,7 @@ class GreedyStrategy(IOptimizationStrategy):
             return []
 
         # Sort by value descending
-        sorted_segs = sorted(segments, key=lambda s: getattr(s, "value", 0.0), reverse=True)
+        sorted_segs = sorted(segments, key=lambda s: s.value, reverse=True)
 
         # Select segments that fit within query limit
         selected = []
@@ -68,7 +68,7 @@ class GreedyStrategy(IOptimizationStrategy):
             depth = self.calculate_depth(segment)
             queries = len(segment.charset) ** depth if depth > 0 else 1
             total_queries *= queries
-            total_value += getattr(segment, "value", 0.0)
+            total_value += segment.value
 
         return total_queries, total_value
 
@@ -89,7 +89,7 @@ class BalancedStrategy(IOptimizationStrategy):
         for segment in segments:
             depth = self.calculate_depth(segment)
             queries = len(segment.charset) ** depth if depth > 0 else 1
-            value = getattr(segment, "value", 0.0)
+            value = segment.value
 
             if queries > 0:
                 efficiency = value / math.log(max(queries, 2))
@@ -114,7 +114,7 @@ class BalancedStrategy(IOptimizationStrategy):
     def calculate_depth(self, segment: CharClassSegment) -> int:
         """Calculate balanced depth."""
         charset_size = len(segment.charset)
-        value = getattr(segment, "value", 0.0)
+        value = segment.value
 
         # Adjust depth based on value
         base_depth = 2
@@ -140,7 +140,7 @@ class BalancedStrategy(IOptimizationStrategy):
             depth = self.calculate_depth(segment)
             queries = len(segment.charset) ** depth if depth > 0 else 1
             total_queries *= queries
-            total_value += getattr(segment, "value", 0.0)
+            total_value += segment.value
 
         # Apply penalty for too many queries
         if total_queries > self.max_queries / 10:
@@ -161,7 +161,7 @@ class ConservativeStrategy(IOptimizationStrategy):
             return []
 
         # Prefer single high-value segment
-        best_segment = max(segments, key=lambda s: getattr(s, "value", 0.0))
+        best_segment = max(segments, key=lambda s: s.value)
         return [best_segment]
 
     def calculate_depth(self, segment: CharClassSegment) -> int:
@@ -185,7 +185,7 @@ class ConservativeStrategy(IOptimizationStrategy):
         segment = segments[0]
         depth = self.calculate_depth(segment)
         queries = len(segment.charset) ** depth if depth > 0 else 1
-        value = getattr(segment, "value", 0.0)
+        value = segment.value
 
         return queries, value
 
@@ -202,7 +202,7 @@ class AggressiveStrategy(IOptimizationStrategy):
             return []
 
         # Try to select multiple segments
-        sorted_segs = sorted(segments, key=lambda s: getattr(s, "value", 0.0), reverse=True)
+        sorted_segs = sorted(segments, key=lambda s: s.value, reverse=True)
 
         # Try combinations up to 3 segments
         best_combination = []
@@ -238,7 +238,7 @@ class AggressiveStrategy(IOptimizationStrategy):
             depth = self.calculate_depth(segment)
             queries = len(segment.charset) ** depth if depth > 0 else 1
             total_queries *= queries
-            total_value += getattr(segment, "value", 0.0)
+            total_value += segment.value
 
         # Bonus for multi-segment combinations
         if len(segments) > 1:

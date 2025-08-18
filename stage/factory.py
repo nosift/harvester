@@ -7,9 +7,15 @@ Provides factory methods for creating tasks from configuration and serialized da
 
 from typing import Any, Dict, Union
 
-from config.schemas import Patterns
-from core.models import Service
-from core.tasks import AcquisitionTask, CheckTask, InspectTask, ProviderTask, SearchTask
+from core.models import (
+    AcquisitionTask,
+    CheckTask,
+    InspectTask,
+    Patterns,
+    ProviderTask,
+    SearchTask,
+    Service,
+)
 from tools.logger import get_logger
 
 logger = get_logger("stage")
