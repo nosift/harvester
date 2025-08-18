@@ -143,26 +143,26 @@ class Pipeline(IPipelineStats, StageRegistryMixin, LifecycleManager):
         thread_config = self.config.pipeline.threads
         queue_config = self.config.pipeline.queue_sizes
 
-        for stage_name in ordered_stages:
-            definition = self.get_stage_def(stage_name)
+        for name in ordered_stages:
+            definition = self.get_stage_def(name)
             if not definition:
-                logger.error(f"Stage definition not found: {stage_name}")
+                logger.error(f"Stage definition not found: {name}")
                 continue
 
             try:
                 # Create stage instance with hybrid architecture
-                stage_instance = definition.stage_class(
+                stage = definition.stage_class(
                     resources=resources,
                     handler=self._handle_stage_output,
-                    thread_count=thread_config.get(stage_name, 1),
-                    queue_size=queue_config.get(stage_name, 1000),
+                    thread_count=max(thread_config.get(name, 1), 1),
+                    queue_size=max(queue_config.get(name, 1000), 1),
                     max_retries=self.config.global_config.max_retries_requeued,
                 )
 
-                self.stages[stage_name] = stage_instance
+                self.stages[name] = stage
 
             except Exception as e:
-                logger.error(f"Failed to create stage {stage_name}: {e}")
+                logger.error(f"Failed to create stage {name}: {e}")
                 raise
 
     def _on_start(self) -> None:
