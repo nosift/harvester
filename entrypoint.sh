@@ -30,11 +30,6 @@ if [ -n "$STATS_INTERVAL" ]; then
     ARGS="$ARGS --stats-interval $STATS_INTERVAL"
 fi
 
-# Add output style if specified
-if [ -n "$OUTPUT_STYLE" ]; then
-    ARGS="$ARGS --style $OUTPUT_STYLE"
-fi
-
 # If no arguments provided, run with environment-based arguments
 if [ $# -eq 0 ]; then
     echo "Starting Harvester with arguments:$ARGS"

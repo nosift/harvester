@@ -15,8 +15,7 @@ ENV GITHUB_TOKENS=""
 # Application configuration
 ENV CONFIG_FILE="config.yaml" \
     LOG_LEVEL="INFO" \
-    STATS_INTERVAL="15" \
-    OUTPUT_STYLE="classic"
+    STATS_INTERVAL="15"
 
 # pip default index url
 ARG PIP_INDEX_URL="https://pypi.org/simple"
