@@ -20,11 +20,10 @@ from core.enums import ResultType
 from core.models import AllRecoveredTasks, RecoveredTasks, Service
 from core.types import IProvider
 from state.models import PersistenceMetrics
-from tools.logger import get_context_logger, get_logger
+from tools.logger import get_logger
 
 from .atomic import AtomicFileWriter
-from .shard import NDJSONShardWriter
-from .snapshot import SnapshotManager
+from .strategies import ShardStrategy, SimpleFileStrategy, SnapshotManager
 
 logger = get_logger("storage")
 
@@ -103,11 +102,7 @@ class ResultManager:
         self.workspace = workspace
         self.batch_size = batch_size
         self.save_interval = save_interval
-        self.simple = simple
         self.shutdown_timeout = float(max(1.0, shutdown_timeout))
-
-        # Create structured logger with provider context
-        self.logger = get_context_logger("persist", provider=self.name)
 
         # Create provider directory
         self.directory = os.path.join(workspace, "providers", self.provider.directory)
@@ -118,6 +113,16 @@ class ResultManager:
         for result_type, mapping in RESULT_MAPPINGS.items():
             filename = getattr(provider, mapping.filename)
             self.files[result_type.value] = os.path.join(self.directory, filename)
+
+        # Initialize persistence strategy based on mode
+        if simple:
+            self.strategy = SimpleFileStrategy(self.directory, self.files)
+            self.snapshot_manager = None
+        else:
+            self.strategy = ShardStrategy(self.directory, self.files)
+            # Create snapshot manager for non-summary result types
+            result_types = [rt for rt in self.files.keys() if rt != "summary"]
+            self.snapshot_manager = SnapshotManager(self.directory, result_types, self.name)
 
         # Result buffers
         self.buffers = {
@@ -140,7 +145,7 @@ class ResultManager:
         self.flush_thread = threading.Thread(target=self._periodic_flush, daemon=True)
         self.flush_thread.start()
 
-        logger.info(f"Initialized result manager for provider: {self.name}")
+        logger.info(f"Initialized result manager for provider: {self.name} (mode: {'simple' if simple else 'shard'})")
 
     def add_result(self, result_type: str, data: Any):
         """Add result to appropriate buffer
@@ -254,20 +259,59 @@ class ResultManager:
 
         logger.info(f"Backed up {len(existing_files)} files for {self.name} to {backup_dir}")
 
-    def _process_shard_file(self, filepath: str, tasks: List[str], estimated_lines: Optional[int] = None) -> int:
-        """Process a single shard file and extract valid URLs.
+    def _process_links_data(self, obj: Dict[str, Any]) -> Optional[str]:
+        """Process links data from NDJSON object.
+
+        Args:
+            obj: Parsed JSON object from shard file
+
+        Returns:
+            Valid URL string or None
+        """
+        # Accept either {"url": "..."} or {"value": "..."}
+        url = obj.get("url") or obj.get("value")
+        if isinstance(url, str) and url.startswith("http"):
+            return url
+        return None
+
+    def _process_service_data(self, obj: Dict[str, Any]) -> Optional[Service]:
+        """Process service data from NDJSON object.
+
+        Args:
+            obj: Parsed JSON object from shard file
+
+        Returns:
+            Valid Service object or None
+        """
+        try:
+            # Try to deserialize as Service object
+            if "value" in obj:
+                # Handle {"value": "serialized_service_data"}
+                return Service.deserialize(obj["value"])
+            else:
+                # Handle direct service object
+                return Service.from_dict(obj)
+        except Exception:
+            return None
+
+    def _process_shard_generic(
+        self, filepath: str, processor_func, target_list: List, estimated_lines: Optional[int] = None
+    ) -> int:
+        """Generic shard file processor with custom data handler and deduplication.
 
         Args:
             filepath: Path to the shard file to process
-            tasks: List to append recovered URLs to
+            processor_func: Function to process each JSON object
+            target_list: List to append processed items to
             estimated_lines: Optional estimated line count for debug logging
 
         Returns:
-            Number of URLs processed from this file
+            Number of unique items processed from this file
         """
-        count = 0
+        seen_items = set()
+
         if estimated_lines:
-            self.logger.debug(f"Processing shard {filepath} (estimated {estimated_lines} lines)")
+            logger.debug(f"Processing shard {filepath} (estimated {estimated_lines} lines)")
 
         try:
             with open(filepath, encoding="utf-8") as f:
@@ -277,34 +321,42 @@ class ResultManager:
                         continue
                     try:
                         obj = json.loads(line)
-                        # Accept either {"url": "..."} or {"value": "..."}
-                        url = obj.get("url") or obj.get("value")
-                        if isinstance(url, str) and url.startswith("http"):
-                            tasks.append(url)
-                            count += 1
+                        processed_item = processor_func(obj)
+                        if processed_item is not None and processed_item not in seen_items:
+                            seen_items.add(processed_item)
+                            target_list.append(processed_item)
                     except Exception:
                         continue
         except Exception as e:
-            self.logger.error(f"Failed to process shard file {filepath}: {e}")
+            logger.error(f"Failed to process shard file {filepath}: {e}")
 
-        return count
+        return len(seen_items)
 
-    def recover_tasks(self) -> RecoveredTasks:
-        """Recover tasks from existing result files and NDJSON shards (links)."""
-        recovered = RecoveredTasks()
-        # Prefer shards for links if available; fallback to legacy text file
-        links_shards = os.path.join(self.directory, "shards", ResultType.LINKS.value)
-        if os.path.isdir(links_shards):
-            total = 0
+    def _recover_result_type(self, result_type: ResultType, target_list: List, processor_func) -> int:
+        """Unified recovery flow for different result types.
+
+        Args:
+            result_type: Type of result to recover
+            target_list: List to append recovered items to
+            processor_func: Function to process each JSON object
+
+        Returns:
+            Number of items recovered
+        """
+        total = 0
+
+        # Try shard files first
+        shards_dir = os.path.join(self.directory, "shards", result_type.value)
+        if os.path.exists(shards_dir) and os.path.isdir(shards_dir):
             try:
                 # Use index to optimize recovery: skip empty shards, estimate work
                 indexed_shards = []
                 unindexed_shards = []
 
-                for filename in sorted(os.listdir(links_shards)):
+                for filename in sorted(os.listdir(shards_dir)):
                     if not filename.endswith(".ndjson"):
                         continue
-                    shard_path = os.path.join(links_shards, filename)
+                    shard_path = os.path.join(shards_dir, filename)
                     index_path = os.path.splitext(shard_path)[0] + ".index.json"
 
                     try:
@@ -321,93 +373,125 @@ class ResultManager:
 
                 for shard_path, index_data in indexed_shards:
                     estimated_lines = int(index_data.get("lines", 0))
-                    count = self._process_shard_file(shard_path, recovered.acquisition_tasks, estimated_lines)
+                    count = self._process_shard_generic(shard_path, processor_func, target_list, estimated_lines)
                     total += count
 
                 # Process non-indexed shards
                 for shard_path in unindexed_shards:
-                    count = self._process_shard_file(shard_path, recovered.acquisition_tasks)
+                    count = self._process_shard_generic(shard_path, processor_func, target_list)
                     total += count
 
                 if total > 0:
-                    logger.info(f"[persist] recovered {total} acquisition tasks from shards for {self.name}")
-                    return recovered
+                    logger.info(f"Recovered {total} unique {result_type.value} items from shards for {self.name}")
+                    return total
             except Exception as e:
-                logger.error(f"[persist] failed to read link shards for {self.name}: {e}")
+                logger.error(f"Failed to read {result_type.value} shards for {self.name}: {e}")
 
-        # Fallback: recover from text file
-        links_path = self.files[ResultType.LINKS.value]
-        if os.path.exists(links_path):
+        # Fallback: recover from legacy text file
+        file_path = self.files.get(result_type.value)
+        if file_path and os.path.exists(file_path):
             try:
-                with open(links_path, encoding="utf-8") as f:
-                    for line in f:
-                        line = line.strip()
-                        if line and line.startswith("http"):
-                            recovered.acquisition_tasks.append(line)
-                logger.info(f"Recovered {len(recovered.acquisition_tasks)} acquisition tasks from {self.name}")
+                fallback_count = self._recover_from_legacy_file(file_path, result_type, target_list)
+                if fallback_count > 0:
+                    logger.info(
+                        f"Recovered {fallback_count} unique {result_type.value} items from legacy file for {self.name}"
+                    )
+                    total += fallback_count
             except Exception as e:
-                logger.error(f"Failed to read links file for {self.name}: {e}")
+                logger.error(f"Failed to read {result_type.value} legacy file for {self.name}: {e}")
+
+        return total
+
+    def _recover_from_legacy_file(self, file_path: str, result_type: ResultType, target_list: List) -> int:
+        """Recover data from legacy text files with deduplication.
+
+        Args:
+            file_path: Path to the legacy file
+            result_type: Type of result being recovered
+            target_list: List to append recovered items to
+
+        Returns:
+            Number of unique items recovered
+        """
+        seen_items = set()
+
+        try:
+            with open(file_path, encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+
+                    processed_item = None
+                    if result_type == ResultType.LINKS:
+                        # Links are stored as plain URLs
+                        if line.startswith("http"):
+                            processed_item = line
+                    elif result_type in (ResultType.MATERIAL, ResultType.INVALID):
+                        # Services are stored as serialized objects or plain keys
+                        service = self._deserialize_service(line)
+                        if service:
+                            processed_item = service
+
+                    if processed_item is not None and processed_item not in seen_items:
+                        seen_items.add(processed_item)
+                        target_list.append(processed_item)
+        except Exception as e:
+            logger.error(f"Failed to process legacy file {file_path}: {e}")
+
+        return len(seen_items)
+
+    def recover_tasks(self) -> RecoveredTasks:
+        """Recover tasks from existing result files and NDJSON shards.
+
+        Supports recovery of:
+        - acquisition_tasks from LINKS data
+        - check_tasks from MATERIAL data
+        - invalid_keys from INVALID data
+
+        Returns:
+            RecoveredTasks with all recovered data
+        """
+        recovered = RecoveredTasks()
+
+        # Recover acquisition tasks from LINKS
+        links_count = self._recover_result_type(ResultType.LINKS, recovered.acquisition, self._process_links_data)
+
+        # Recover check tasks from MATERIAL
+        material_count = self._recover_result_type(ResultType.MATERIAL, recovered.check, self._process_service_data)
+
+        # Recover invalid keys from INVALID (using a temporary list then converting to set)
+        invalid_list = []
+        invalid_count = self._recover_result_type(ResultType.INVALID, invalid_list, self._process_service_data)
+
+        # Convert list to set for invalid_keys
+        if invalid_list:
+            recovered.invalid.update(invalid_list)
+
+        # Log recovery summary
+        if links_count > 0 or material_count > 0 or invalid_count > 0:
+            logger.info(
+                f"Recovery completed for {self.name}: "
+                f"{links_count} acquisition tasks, "
+                f"{material_count} check tasks, "
+                f"{invalid_count} invalid keys"
+            )
+        else:
+            logger.debug(f"No tasks recovered for {self.name}")
+
         return recovered
 
     def build_snapshot(self, result_type: str) -> int:
-        """Build a pretty JSON snapshot from NDJSON shards for a result type."""
-        shard_root = os.path.join(self.directory, "shards", result_type)
-        snapshots_dir = os.path.join(self.directory, "snapshots")
-        os.makedirs(snapshots_dir, exist_ok=True)
-        snapshot_path = os.path.join(snapshots_dir, f"{result_type}.json")
-        manager = SnapshotManager(shard_root, snapshot_path)
-        t0 = time.time()
-        count = manager.build_snapshot()
-        dt = time.time() - t0
-        with self.lock:
-            self.stats.last_snapshot = time.time()
-            self.stats.snapshot_count += 1
-            self.stats.total_snapshot_time += dt
-            self.stats.snapshot_operations += 1
-        self.logger.info(f"built snapshot for {result_type} with {count} records in {dt:.3f}s")
-        return count
+        """Build snapshot for specific result type."""
+        if not self.snapshot_manager:
+            return 0
+        return self.snapshot_manager.build_snapshot(result_type)
 
     def build_all_snapshots(self) -> Dict[str, int]:
-        """Build snapshots for all buffered result types (excluding summary)."""
-        results: Dict[str, int] = {}
-        for rt in self.buffers.keys():
-            try:
-                results[rt] = self.build_snapshot(rt)
-            except Exception as e:
-                logger.error(f"[persist] failed to build snapshot for {self.name}:{rt}: {e}")
-        return results
-
-    def _get_shard_writer(self, result_type: str) -> NDJSONShardWriter:
-        """Lazy-init and cache shard writers per result type."""
-        if not hasattr(self, "_shard_writers"):
-            self._shard_writers: Dict[str, NDJSONShardWriter] = {}
-        writer = self._shard_writers.get(result_type)
-        if not writer:
-            # Place shards under provider directory: <dir>/shards/<result_type>/*.ndjson
-            shard_root = os.path.join(self.directory, "shards")
-            writer = NDJSONShardWriter(shard_root, result_type)
-            self._shard_writers[result_type] = writer
-        return writer
-
-    def _load_services_from_file(self, filepath: str) -> List:
-        """Load and deserialize services from file"""
-        services = []
-        try:
-            if os.path.exists(filepath) and os.path.isfile(filepath):
-                with open(filepath, encoding="utf-8") as f:
-                    for line in f:
-                        line = line.strip()
-                        if line:
-                            try:
-                                service = self._deserialize_service(line)
-                                if service:
-                                    services.append(service)
-                            except Exception as e:
-                                logger.warning(f"Failed to deserialize service from {filepath}: {e}")
-        except Exception as e:
-            logger.error(f"Failed to read file {filepath}: {e}")
-
-        return services
+        """Build snapshots for all result types."""
+        if not self.snapshot_manager:
+            return {}
+        return self.snapshot_manager.build_all_snapshots()
 
     def _deserialize_service(self, line: str) -> Optional[Any]:
         """Deserialize service object from string"""
@@ -420,46 +504,45 @@ class ResultManager:
     def stop(self):
         """Stop the result manager and flush all data, then build snapshots."""
         self.running = False
+
         # Stop periodic snapshot thread first to avoid concurrent builds
         try:
             self.stop_periodic_snapshot()
         except Exception as e:
             logger.error(f"[persist] failed to stop periodic snapshot for {self.name}: {e}")
+
+        # Wait for flush thread to complete
         if self.flush_thread.is_alive():
             self.flush_thread.join(timeout=self.shutdown_timeout)
 
+        # Flush all remaining data
         self.flush_all()
+
+        # Build final snapshots if supported
         try:
             self.build_all_snapshots()
         except Exception as e:
             logger.error(f"[persist] failed to build snapshots for {self.name} on stop: {e}")
+
+        # Cleanup strategy resources
+        try:
+            self.strategy.cleanup()
+        except Exception as e:
+            logger.error(f"[persist] failed to cleanup strategy for {self.name}: {e}")
+
         logger.info(f"Stopped result manager for {self.name}")
 
     def start_periodic_snapshot(self, interval_sec: int = 300) -> None:
-        """Start a background thread to build snapshots periodically."""
-        if hasattr(self, "_snapshot_thread") and self._snapshot_thread and self._snapshot_thread.is_alive():
+        """Start periodic snapshot building."""
+        if not self.snapshot_manager:
             return
-        self._snapshot_running = True
-
-        def _loop():
-            while self._snapshot_running:
-                try:
-                    time.sleep(interval_sec)
-                    if not self._snapshot_running:
-                        break
-                    self.build_all_snapshots()
-                except Exception as e:
-                    logger.error(f"[persist] periodic snapshot error for {self.name}: {e}")
-
-        self._snapshot_thread = threading.Thread(target=_loop, daemon=True)
-        self._snapshot_thread.start()
+        self.snapshot_manager.start_periodic(interval_sec)
 
     def stop_periodic_snapshot(self) -> None:
-        """Stop the background snapshot thread."""
-        self._snapshot_running = False
-        t = getattr(self, "_snapshot_thread", None)
-        if t and t.is_alive():
-            t.join(timeout=self.shutdown_timeout)
+        """Stop periodic snapshot building."""
+        if not self.snapshot_manager:
+            return
+        self.snapshot_manager.stop()
 
     def _periodic_flush(self):
         """Periodic flush thread"""
@@ -476,7 +559,7 @@ class ResultManager:
                 logger.error(f"[persist] error in periodic flush for {self.name}: {e}")
 
     def _flush_buffer(self, result_type: str):
-        """Flush a specific buffer to file"""
+        """Flush a specific buffer using persistence strategy"""
         buffer = self.buffers.get(result_type)
         if not buffer:
             return
@@ -486,41 +569,11 @@ class ResultManager:
             return
 
         try:
-            filepath = self.files[result_type]
-
-            # Convert items to simple lines or NDJSON records
-            lines: List[str] = []
-            records: List[Dict[str, Any]] = []
-            for item in items:
-                if hasattr(item, "serialize"):
-                    s = item.serialize()
-                    if self.simple:
-                        lines.append(s)
-                    else:
-                        # Best effort: also try to convert to dict if possible
-                        try:
-                            records.append(json.loads(s))
-                        except Exception:
-                            # Fallback to plain string envelope
-                            records.append({"value": s})
-                else:
-                    s = str(item)
-                    if self.simple:
-                        lines.append(s)
-                    else:
-                        records.append({"value": s})
-
-            # Write simple text file
-            if self.simple:
-                AtomicFileWriter.append_atomic(filepath, lines)
-            else:
-                # Append to NDJSON shard for new pipeline
-                self._get_shard_writer(result_type).append_records(records, self.stats)
+            # Delegate to persistence strategy
+            self.strategy.write_data(result_type, items, self.stats)
 
             with self.lock:
                 self.stats.last_save = time.time()
-
-            logger.info(f"[persist] saved {len(lines)} {result_type} for {self.name}")
 
         except Exception as e:
             logger.error(f"[persist] failed to save {result_type} for {self.name}: {e}")

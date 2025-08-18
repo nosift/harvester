@@ -25,7 +25,6 @@ from constant.system import (
     DEFAULT_SHUTDOWN_TIMEOUT,
     DEFAULT_STATS_INTERVAL,
     FORCE_EXIT_GRACE_PERIOD,
-    SHUTDOWN_MONITOR_INTERVAL,
 )
 from core.enums import PipelineStage, SystemState
 from manager.shutdown import ShutdownCoordinator
@@ -88,7 +87,7 @@ class AsyncPipelineApplication:
             logger.info("Global resource managers initialized")
 
             # Create task manager
-            self.task_manager = create_task_manager(self.config_path)
+            self.task_manager = TaskManager(self.config)
             logger.info(f"Task manager created with {len(self.task_manager.providers)} providers")
 
             # Create monitoring system using monitoring config (without status manager yet)
@@ -143,7 +142,7 @@ class AsyncPipelineApplication:
             self.shutdown_coordinator = ShutdownCoordinator(
                 components=components,
                 shutdown_timeout=float(getattr(self.config.persistence, "shutdown_timeout", DEFAULT_SHUTDOWN_TIMEOUT)),
-                monitor_interval=SHUTDOWN_MONITOR_INTERVAL,
+                monitor_interval=self.config.monitoring.update_interval,
             )
             logger.info("Shutdown coordinator initialized")
 

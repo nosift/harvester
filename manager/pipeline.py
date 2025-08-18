@@ -176,9 +176,6 @@ class Pipeline(IPipelineStats, StageRegistryMixin, LifecycleManager):
             if stage:
                 stage.start()
 
-        # Start queue manager periodic save
-        self.queue_manager.start_periodic_save(self.stages)
-
         logger.info(f"Started {len(self.stages)} pipeline stages")
 
     def _on_stop(self) -> None:

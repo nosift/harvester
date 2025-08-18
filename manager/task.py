@@ -9,8 +9,7 @@ import copy
 import threading
 import time
 import traceback
-from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import Callable, Dict, List, Optional, Set
 
 import constant
 from config import load_config
@@ -256,7 +255,10 @@ class TaskManager(LifecycleManager, TaskDataProvider):
         # 6. Backup existing files (after recovery is complete)
         self.pipeline.result_manager.backup_all_existing_files()
 
-        # 7. Add initial search tasks
+        # 7. Start queue manager periodic save, after recovery to avoid file conflicts
+        self.pipeline.queue_manager.start_periodic_save(self.pipeline.stages)
+
+        # 8. Add initial search tasks
         initial_tasks = self._create_initial_tasks()
         if initial_tasks:
             self.pipeline.add_initial_tasks(initial_tasks)

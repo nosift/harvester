@@ -52,7 +52,6 @@ COLLECT_RETRY_INTERVAL: int = 1
 
 # Signal handling timeouts
 FORCE_EXIT_GRACE_PERIOD: float = 5.0  # Time to wait for second Ctrl+C
-SHUTDOWN_MONITOR_INTERVAL: float = 5.0  # Shutdown coordinator check interval
 
 # Maximum number of times to re-queue when processing fails
 DEFAULT_MAX_RETRIES_REQUEUED: int = 3

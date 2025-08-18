@@ -80,29 +80,29 @@ class LoggingStats:
 class RecoveredTasks:
     """Recovery data for a single provider"""
 
-    check_tasks: List["Service"] = field(default_factory=list)
-    acquisition_tasks: List[str] = field(default_factory=list)
-    invalid_keys: Set["Service"] = field(default_factory=set)
+    check: List["Service"] = field(default_factory=list)
+    acquisition: List[str] = field(default_factory=list)
+    invalid: Set["Service"] = field(default_factory=set)
 
     def has_tasks(self) -> bool:
         """Check if any tasks need recovery"""
-        return bool(self.check_tasks or self.acquisition_tasks or self.invalid_keys)
+        return bool(self.check or self.acquisition or self.invalid)
 
     def check_count(self) -> int:
         """Get number of check tasks"""
-        return len(self.check_tasks)
+        return len(self.check)
 
     def acquisition_count(self) -> int:
         """Get number of acquisition tasks"""
-        return len(self.acquisition_tasks)
+        return len(self.acquisition)
 
     def invalid_count(self) -> int:
         """Get number of invalid keys"""
-        return len(self.invalid_keys)
+        return len(self.invalid)
 
     def valid_check_tasks(self) -> List["Service"]:
         """Get check tasks filtered by invalid keys"""
-        return [task for task in self.check_tasks if task not in self.invalid_keys]
+        return [task for task in self.check if task not in self.invalid]
 
     def summary(self) -> str:
         """Get task summary string"""

@@ -318,7 +318,6 @@ class Logger:
         for log_file in Logger._logs_dir.glob("*.log"):
             try:
                 log_file.unlink()
-                print(f"Deleted existing log: {log_file.name}")
                 Logger._archived_logs.add(log_file.name)
             except Exception as e:
                 print(f"Failed to delete {log_file.name}: {e}")
@@ -362,7 +361,6 @@ class Logger:
         if log_file.exists():
             try:
                 log_file.unlink()
-                print(f"Deleted existing log: {log_file_name}")
                 Logger._archived_logs.add(log_file_name)
             except Exception as e:
                 print(f"Failed to delete {log_file_name}: {e}")

@@ -103,11 +103,11 @@ class TaskRecoveryStrategy:
 
         # Recover check tasks (Service objects can be used directly)
         if self._stage_enabled(config, PipelineStage.CHECK.value):
-            self._recover_check_tasks(provider_name, tasks.check_tasks, tasks.invalid_keys)
+            self._recover_check_tasks(provider_name, tasks.check, tasks.invalid)
 
         # Recover acquisition tasks (URLs need to be converted to AcquisitionTask objects)
         if self._stage_enabled(config, PipelineStage.GATHER.value):
-            self._recover_acquisition_tasks(provider_name, tasks.acquisition_tasks)
+            self._recover_acquisition_tasks(provider_name, tasks.acquisition)
 
     def _recover_stage_tasks(self, stage: PipelineStage, provider_name: str, tasks: List[Any]) -> None:
         """Recover tasks for specific stage using enum
