@@ -718,13 +718,21 @@ class MultiResultManager:
 
     def start_periodic_snapshots(self, interval_sec: int = 300) -> None:
         """Start periodic snapshots for all providers."""
+        started_count = 0
         with self.lock:
             for manager in self.managers.values():
                 try:
-                    manager.start_periodic_snapshot(interval_sec)
+                    # Only count if snapshot manager exists
+                    if manager.snapshot_manager:
+                        manager.start_periodic_snapshot(interval_sec)
+                        started_count += 1
                 except Exception as e:
                     logger.error(f"Failed to start periodic snapshot for {manager.name}: {e}")
-        logger.info(f"Started periodic snapshots for {len(self.managers)} providers, interval: {interval_sec}s")
+
+        if started_count > 0:
+            logger.info(f"Started periodic snapshots for {started_count} providers, interval: {interval_sec}s")
+        else:
+            logger.debug("No periodic snapshots started (simple mode or no providers)")
 
     def stop_periodic_snapshots(self) -> None:
         """Stop periodic snapshots for all providers."""

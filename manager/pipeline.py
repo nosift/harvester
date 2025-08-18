@@ -69,10 +69,13 @@ class Pipeline(IPipelineStats, StageRegistryMixin, LifecycleManager):
         )
 
         # Start periodic snapshots for results
-        try:
-            self.result_manager.start_periodic_snapshots(config.persistence.snapshot_interval)
-        except Exception as e:
-            logger.error(f"Failed to start periodic snapshots: {e}")
+        if not config.persistence.simple:
+            try:
+                self.result_manager.start_periodic_snapshots(config.persistence.snapshot_interval)
+            except Exception as e:
+                logger.error(f"Failed to start periodic snapshots: {e}")
+        else:
+            logger.debug("Skipping periodic snapshots in simple mode")
 
         # Store task configs for stage checking (must be before _create_stages)
         self.task_configs = {task.name: task for task in config.tasks if task.enabled}
