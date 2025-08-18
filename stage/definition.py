@@ -200,7 +200,11 @@ class SearchStage(BasePipelineStage):
             if wait_time > 0:
                 time.sleep(wait_time)
                 if not self.resources.limiter.acquire(service_type):
-                    logger.info(f'[{self.name}] rate limit exceeded for Github {"Rest API" if use_api else "Web"}')
+                    bucket = self.resources.limiter._get_bucket(service_type)
+                    max_value = bucket.burst if bucket else "unknown"
+                    logger.info(
+                        f'[{self.name}] rate limit exceeded for Github {"Rest API" if use_api else "Web"}, max: {max_value}'
+                    )
                     return False
         return True
 
@@ -397,7 +401,11 @@ class CheckStage(BasePipelineStage):
                 if wait_time > 0:
                     time.sleep(wait_time)
                     if not self.resources.limiter.acquire(service_type):
-                        logger.info(f"[{self.name}] rate limit exceeded for provider: {task.provider}")
+                        bucket = self.resources.limiter._get_bucket(service_type)
+                        max_value = bucket.burst if bucket else "unknown"
+                        logger.info(
+                            f"[{self.name}] rate limit exceeded for provider: {task.provider}, max: {max_value}"
+                        )
                         return None
 
             # Execute check

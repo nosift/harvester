@@ -134,7 +134,9 @@ class AsyncRateLimiter:
         # Wait for tokens to become available
         wait_time = self.rate_limiter.wait_time(service, tokens)
         if wait_time > 0:
-            logger.debug(f"Rate limit hit for {service}, waiting {wait_time:.2f}s")
+            bucket = self.rate_limiter._get_bucket(service)
+            max_value = bucket.burst if bucket else "unknown"
+            logger.debug(f"Rate limit hit for {service}, waiting {wait_time:.2f}s, max: {max_value}")
             await asyncio.sleep(wait_time)
             return self.rate_limiter.acquire(service, tokens)
 

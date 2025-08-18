@@ -97,7 +97,9 @@ class GitHubClient:
         # Wait for tokens
         wait = self.limiter.wait_time(service)
         if wait > 0:
-            logger.info(f"Rate limit hit for {service}, waiting {wait:.2f}s")
+            bucket = self.limiter._get_bucket(service)
+            max_value = bucket.burst if bucket else "unknown"
+            logger.info(f"Rate limit hit for {service}, waiting {wait:.2f}s, max: {max_value}")
             time.sleep(wait)
             return self.limiter.acquire(service)
 
