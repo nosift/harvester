@@ -33,7 +33,6 @@ from .schemas import (
     PersistenceConfig,
     PipelineConfig,
     StageConfig,
-    StatsConfig,
     TaskConfig,
     WorkerManagerConfig,
 )
@@ -90,10 +89,6 @@ class ConfigLoader:
         # Parse pipeline configuration
         if "pipeline" in data:
             config.pipeline = self._parse_pipeline_config(data["pipeline"])
-
-        # Parse stats configuration
-        if "stats" in data:
-            config.stats = self._parse_stats_config(data["stats"])
 
         # Parse monitoring configuration
         if "monitoring" in data:
@@ -175,20 +170,6 @@ class ConfigLoader:
             PipelineConfig: Parsed pipeline configuration
         """
         return PipelineConfig(threads=data.get("threads", {}), queue_sizes=data.get("queue_sizes", {}))
-
-    def _parse_stats_config(self, data: Dict[str, Any]) -> StatsConfig:
-        """Parse statistics display configuration section
-
-        Args:
-            data: Stats configuration data
-
-        Returns:
-            StatsConfig: Parsed stats configuration
-        """
-        return StatsConfig(
-            interval=data.get("interval", 10),
-            show=data.get("show", True),
-        )
 
     def _parse_monitoring_config(self, data: Dict[str, Any]) -> MonitoringConfig:
         """Parse system monitoring configuration section

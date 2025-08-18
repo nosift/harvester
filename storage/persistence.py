@@ -145,7 +145,7 @@ class ResultManager:
         self.flush_thread = threading.Thread(target=self._periodic_flush, daemon=True)
         self.flush_thread.start()
 
-        logger.info(f"Initialized result manager for provider: {self.name} (mode: {'simple' if simple else 'shard'})")
+        logger.info(f"Initialized result manager for provider: {self.name}, mode: {'simple' if simple else 'shard'}")
 
     def add_result(self, result_type: str, data: Any):
         """Add result to appropriate buffer
@@ -724,7 +724,7 @@ class MultiResultManager:
                     manager.start_periodic_snapshot(interval_sec)
                 except Exception as e:
                     logger.error(f"Failed to start periodic snapshot for {manager.name}: {e}")
-        logger.info(f"Started periodic snapshots for {len(self.managers)} providers (interval: {interval_sec}s)")
+        logger.info(f"Started periodic snapshots for {len(self.managers)} providers, interval: {interval_sec}s")
 
     def stop_periodic_snapshots(self) -> None:
         """Stop periodic snapshots for all providers."""

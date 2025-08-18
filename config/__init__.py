@@ -30,7 +30,6 @@ from .schemas import (
     MonitoringConfig,
     PipelineConfig,
     StageConfig,
-    StatsConfig,
     TaskConfig,
     WorkerManagerConfig,
 )
@@ -85,7 +84,6 @@ __all__ = [
     "DisplayConfig",
     "GlobalConfig",
     "MonitoringConfig",
-    "StatsConfig",
     "PipelineConfig",
     "StageConfig",
     "SystemMonitoringConfig",

@@ -20,7 +20,6 @@ from .schemas import (
     MonitoringConfig,
     PipelineConfig,
     RateLimitConfig,
-    StatsConfig,
     TaskConfig,
     WorkerManagerConfig,
 )
@@ -52,14 +51,6 @@ class ConfigAccessor:
             PipelineConfig: Pipeline configuration object
         """
         return self.config.pipeline
-
-    def get_stats_config(self) -> StatsConfig:
-        """Get statistics display configuration
-
-        Returns:
-            StatsConfig: Statistics configuration object
-        """
-        return self.config.stats
 
     def get_monitoring_config(self) -> MonitoringConfig:
         """Get system monitoring configuration

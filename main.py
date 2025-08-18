@@ -29,7 +29,7 @@ from constant.system import (
 from core.enums import PipelineStage, SystemState
 from manager.shutdown import ShutdownCoordinator
 from manager.status import StatusManager
-from manager.task import TaskManager, create_task_manager
+from manager.task import TaskManager
 from manager.worker import WorkerManager, create_worker_manager
 from state.collector import StatusCollector
 from state.enums import DisplayMode, StatusContext
@@ -68,7 +68,7 @@ class AsyncPipelineApplication:
         self.shutdown_coordinator: Optional[ShutdownCoordinator] = None
 
         # Statistics
-        self.stats_display_interval = float(DEFAULT_STATS_INTERVAL)
+        self.stats_interval = float(DEFAULT_STATS_INTERVAL)
 
         # Status display style (default to classic per user preference)
         self.display_style = "classic"
@@ -131,7 +131,7 @@ class AsyncPipelineApplication:
             self.status_manager = StatusManager(
                 collector=self.status_collector,
                 task_provider=self.task_manager,
-                display_interval=DEFAULT_STATS_INTERVAL,
+                display_interval=self.stats_interval,
             )
             logger.info("Status manager initialized as scheduling entry point")
 
@@ -428,14 +428,6 @@ def create_sample_config(output_path: str = DEFAULT_CONFIG_FILE) -> bool:
     return True
 
 
-def create_application(config_path: str = DEFAULT_CONFIG_FILE, style: str = "classic") -> AsyncPipelineApplication:
-    """Factory function to create application instance"""
-    app = AsyncPipelineApplication(config_path)
-    # Configure display style
-    app.display_style = "classic" if str(style).lower() in ("classic", "main") else "detailed"
-    return app
-
-
 if __name__ == "__main__":
     # Parse command line arguments first to handle special commands
     parser = argparse.ArgumentParser(
@@ -476,13 +468,6 @@ Examples:
 
     parser.add_argument("--create-config", action="store_true", help="Create sample configuration file and exit")
 
-    parser.add_argument(
-        "--style",
-        choices=["classic", "detailed"],
-        default="classic",
-        help="Output style: classic (main-like) or detailed (application-like)",
-    )
-
     args = parser.parse_args()
 
     # Handle special commands first
@@ -504,8 +489,7 @@ Examples:
     init_logging(args.log_level)
 
     # Create and configure application
-    app = create_application(args.config, style=args.style)
-    app.stats_display_interval = args.stats_interval
+    app = AsyncPipelineApplication(args.config)
 
     try:
         logger.info("Starting Async Pipeline Application")

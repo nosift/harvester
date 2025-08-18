@@ -21,13 +21,6 @@ pipeline:
     check: 2 # Validation stage threads
     inspect: 1 # API capability inspection threads
 
-# Statistics display configuration
-stats:
-  # Update interval in seconds
-  interval: 10
-  # Enable statistics display
-  show: true
-
 # System monitoring settings
 monitoring:
   # Monitoring update interval in seconds

@@ -42,9 +42,6 @@ class ConfigValidator:
         # Validate pipeline configuration
         self._validate_pipeline_config(config)
 
-        # Validate stats configuration
-        self._validate_stats_config(config)
-
         # Validate monitoring configuration
         self._validate_monitoring_config(config)
 
@@ -116,17 +113,6 @@ class ConfigValidator:
                 self.errors.append(f"Missing queue size for stage: {stage}")
             elif pipeline.queue_sizes[stage] <= 0:
                 self.errors.append(f"Queue size for {stage} must be positive")
-
-    def _validate_stats_config(self, config: Config) -> None:
-        """Validate stats configuration section
-
-        Args:
-            config: Configuration object
-        """
-        stats = config.stats
-
-        if stats.interval <= 0:
-            self.errors.append("Stats interval must be positive")
 
     def _validate_monitoring_config(self, config: Config) -> None:
         """Validate monitoring configuration section

@@ -632,11 +632,6 @@ The system features a sophisticated **Query Optimization Engine** with mathemati
           check: 2     # Validation threads
           inspect: 1    # API capability inspection threads
 
-      # Statistics display configuration
-      stats:
-        interval: 10  # Update interval in seconds
-        show: true    # Enable statistics display
-
       # System monitoring settings
       monitoring:
         update_interval: 2.0    # Monitoring update interval

@@ -104,14 +104,6 @@ class PipelineConfig:
 
 
 @dataclass
-class StatsConfig:
-    """Statistics display configuration"""
-
-    interval: int = 10
-    show: bool = True
-
-
-@dataclass
 class MonitoringConfig:
     """System monitoring and alerting configuration"""
 
@@ -361,7 +353,6 @@ class Config:
 
     global_config: GlobalConfig = field(default_factory=GlobalConfig)
     pipeline: PipelineConfig = field(default_factory=PipelineConfig)
-    stats: StatsConfig = field(default_factory=StatsConfig)
     monitoring: MonitoringConfig = field(default_factory=MonitoringConfig)
     display: DisplayConfig = field(default_factory=DisplayConfig)
     persistence: PersistenceConfig = field(default_factory=PersistenceConfig)

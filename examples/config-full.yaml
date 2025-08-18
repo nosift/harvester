@@ -38,13 +38,6 @@ pipeline:
     check: 500000 # Validation tasks queue
     inspect: 1000000 # API capability inspection tasks queue
 
-# Statistics display configuration
-stats:
-  # Statistics update interval in seconds
-  interval: 10
-  # Enable statistics display
-  show: true
-
 # System monitoring configuration
 monitoring:
   # Monitoring update interval in seconds

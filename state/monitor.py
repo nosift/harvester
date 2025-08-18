@@ -143,7 +143,6 @@ class ProviderMonitoring(IMonitorProvider):
     """Pure monitoring data aggregator without scheduling dependencies"""
 
     def __init__(self, config: MonitoringConfig):
-        self.config = config
         self.provider_status: Dict[str, ProviderStatus] = {}
         self.pipeline_status = PipelineStatus()
         self.alert_manager = AlertManager(config)

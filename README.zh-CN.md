@@ -620,11 +620,6 @@ sequenceDiagram
           check: 2     # 验证线程数
           inspect: 1    # API能力检查线程数
 
-      # 统计显示配置
-      stats:
-        interval: 10  # 更新间隔（秒）
-        show: true    # 启用统计显示
-
       # 系统监控设置
       monitoring:
         update_interval: 2.0    # 监控更新间隔

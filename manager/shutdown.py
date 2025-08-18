@@ -59,7 +59,7 @@ class ShutdownCoordinator:
             daemon=False,  # Non-daemon to ensure graceful shutdown
         )
         self.completion_thread.start()
-        logger.info(f"Started completion monitoring thread (interval: {self.monitor_interval}s)")
+        logger.info(f"Started completion monitoring thread, interval: {self.monitor_interval}s")
 
     def stop_completion_monitor(self) -> None:
         """Stop completion monitoring thread"""
