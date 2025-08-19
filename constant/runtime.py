@@ -13,10 +13,10 @@ from typing import Dict, Optional
 from core.enums import PipelineStage, ResultType
 
 # Queue sizes for each stage
-DEFAULT_SEARCH_QUEUE_SIZE: int = 100000
-DEFAULT_GATHER_QUEUE_SIZE: int = 200000
-DEFAULT_CHECK_QUEUE_SIZE: int = 500000
-DEFAULT_INSPECT_QUEUE_SIZE: int = 1000000
+DEFAULT_SEARCH_QUEUE_SIZE: int = 500000
+DEFAULT_GATHER_QUEUE_SIZE: int = 1000000
+DEFAULT_CHECK_QUEUE_SIZE: int = 5000000
+DEFAULT_INSPECT_QUEUE_SIZE: int = 10000000
 
 # Queue and thread defaults using PipelineStage enum
 DEFAULT_THREAD_COUNTS: Dict[str, int] = {

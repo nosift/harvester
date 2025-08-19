@@ -615,7 +615,7 @@ The system features a sophisticated **Query Optimization Engine** with mathemati
    1. **Basic Configuration** - Suitable for quick start:
       ```yaml
       # Global application settings
-      global_config:
+      global:
         workspace: "./data"  # Working directory
         github_credentials:
           sessions:
@@ -921,7 +921,7 @@ python main.py --log-level DEBUG > debug.log 2>&1
 ### **Data Protection**
 ```yaml
 # Example: Secure credential configuration
-global_config:
+global:
   github_credentials:
     sessions:
       - "${GITHUB_SESSION_1}"  # Use environment variables

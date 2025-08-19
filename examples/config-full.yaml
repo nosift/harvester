@@ -2,7 +2,7 @@
 # This file demonstrates all available configuration options
 
 # Global application settings
-global_config:
+global:
   # Working directory for storing data and results
   workspace: "./data"
   # Maximum number of times a task can be requeued after failure

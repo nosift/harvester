@@ -603,7 +603,7 @@ sequenceDiagram
    1. **基础配置** - 适合快速开始使用：
       ```yaml
       # 全局应用设置
-      global_config:
+      global:
         workspace: "./data"  # 工作目录
         github_credentials:
           sessions:
@@ -923,7 +923,7 @@ python main.py --log-level DEBUG > debug.log 2>&1
 ### **数据保护**
 ```yaml
 # 示例：安全凭证配置
-global_config:
+global:
   github_credentials:
     sessions:
       - "${GITHUB_SESSION_1}"  # 使用环境变量
