@@ -99,16 +99,15 @@ class ConfigValidator:
         """
         pipeline = config.pipeline
 
-        # Validate thread counts
         required_stages = {"search", "gather", "check", "inspect"}
         for stage in required_stages:
+            # Validate thread counts
             if stage not in pipeline.threads:
                 self.errors.append(f"Missing thread count for stage: {stage}")
             elif pipeline.threads[stage] <= 0:
                 self.errors.append(f"Thread count for {stage} must be positive")
 
-        # Validate queue sizes
-        for stage in required_stages:
+            # Validate queue sizes
             if stage not in pipeline.queue_sizes:
                 self.errors.append(f"Missing queue size for stage: {stage}")
             elif pipeline.queue_sizes[stage] <= 0:

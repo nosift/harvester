@@ -102,6 +102,12 @@ class PipelineConfig:
     threads: Dict[str, int] = field(default_factory=_get_default_threads)
     queue_sizes: Dict[str, int] = field(default_factory=_get_default_queue_sizes)
 
+    def __post_init__(self):
+        if not self.threads:
+            self.threads = _get_default_threads()
+        if not self.queue_sizes:
+            self.queue_sizes = _get_default_queue_sizes()
+
 
 @dataclass
 class MonitoringConfig:
