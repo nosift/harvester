@@ -343,7 +343,9 @@ class TaskManager(LifecycleManager, TaskDataProvider):
                 continue
 
             if not task_config.stages.search:
-                logger.info(f"Skipping initial search tasks for provider {task_config.name} - search stage disabled")
+                logger.info(
+                    f"Skipping initial search tasks for provider {task_config.name} due to search stage disabled"
+                )
                 continue
 
             # Check if we have GitHub credentials
@@ -351,7 +353,12 @@ class TaskManager(LifecycleManager, TaskDataProvider):
                 # Try to get either token or session to verify availability
                 has_token = get_token() is not None
                 has_session = get_session() is not None
-                if not has_token and not has_session:
+                if (
+                    not has_token
+                    and not has_session
+                    or (task_config.use_api and not has_token)
+                    or (not task_config.use_api and not has_session)
+                ):
                     logger.warning(
                         f"Skipping search for provider {task_config.name} as no github token or session is provided"
                     )
