@@ -7,7 +7,7 @@ This module provides enhanced task recovery functionality using type-safe
 stage management and configuration-driven approach.
 """
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
 from core.enums import PipelineStage
 from core.models import AllRecoveredTasks, ProviderTask, RecoveredTasks, Service
@@ -111,13 +111,13 @@ class TaskRecoveryManager:
         if StageUtils.check(config, PipelineStage.GATHER):
             self._recover_acquisition_tasks(name, tasks.acquisition)
 
-    def _recover_check_tasks(self, name: str, check_tasks: List[Service], invalid_keys: List[Service]) -> None:
+    def _recover_check_tasks(self, name: str, check_tasks: List[Service], invalid_keys: Set[Service]) -> None:
         """Recover check tasks for provider
 
         Args:
             name: Name of the provider
             check_tasks: List of services to check
-            invalid_keys: List of invalid services
+            invalid_keys: Set of invalid services
         """
         stage_instance = self.pipeline.get_stage(PipelineStage.CHECK.value)
         if not stage_instance:
@@ -133,6 +133,9 @@ class TaskRecoveryManager:
 
         # Recover valid check tasks
         for service in check_tasks:
+            if not service or (invalid_keys and service in invalid_keys):
+                continue
+
             try:
                 check_task = TaskFactory.create_check_task(name, service)
                 stage_instance.put_task(check_task)
@@ -140,16 +143,6 @@ class TaskRecoveryManager:
 
             except Exception as e:
                 logger.error(f"Failed to create check task for {name}: {e}")
-
-        # Recover invalid keys for re-checking
-        for service in invalid_keys:
-            try:
-                check_task = TaskFactory.create_check_task(name, service)
-                stage_instance.put_task(check_task)
-                recovered_count += 1
-
-            except Exception as e:
-                logger.error(f"Failed to create check task for invalid key {name}: {e}")
 
         if recovered_count > 0:
             logger.info(f"Recovered {recovered_count} check tasks for {name}")
