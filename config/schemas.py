@@ -30,16 +30,11 @@ class CredentialsConfig:
 
     def __post_init__(self):
         """Validate credentials configuration"""
-        # Filter out placeholder values
-        valid_sessions = [s for s in self.sessions if s and not s.startswith("your_")]
-        valid_tokens = [t for t in self.tokens if t and not t.startswith("your_")]
-
-        # Check if we have any placeholder values
-        has_placeholder_sessions = any(s.startswith("your_") for s in self.sessions)
-        has_placeholder_tokens = any(t.startswith("your_") for t in self.tokens)
 
         # Only require valid credentials if no placeholders are present
-        if not valid_sessions and not valid_tokens and not has_placeholder_sessions and not has_placeholder_tokens:
+        if (not self.sessions or not isinstance(self.sessions, list)) and (
+            not self.tokens or not isinstance(self.tokens, list)
+        ):
             raise ValueError("At least one session or token must be provided")
 
         # Convert string strategy to enum if needed
@@ -61,8 +56,8 @@ class GlobalConfig:
         # Set default credentials with placeholder values
         if self.github_credentials is None:
             self.github_credentials = CredentialsConfig(
-                sessions=["your_github_session_here"],
-                tokens=["your_github_token_here"],
+                sessions=[],
+                tokens=[],
                 strategy=LoadBalanceStrategy.ROUND_ROBIN,
             )
 

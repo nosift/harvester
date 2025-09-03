@@ -128,8 +128,8 @@ class ConfigLoader:
         credentials_data = data.get("github_credentials", {})
 
         # Get sessions and tokens from config
-        sessions = credentials_data.get("sessions", [])
-        tokens = credentials_data.get("tokens", [])
+        sessions = credentials_data.get("sessions") or []
+        tokens = credentials_data.get("tokens") or []
 
         # Filter out placeholder values from config
         valid_sessions = [s for s in sessions if s and not s.startswith("your_")]
