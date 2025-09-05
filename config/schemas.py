@@ -32,10 +32,11 @@ class CredentialsConfig:
         """Validate credentials configuration"""
 
         # Only require valid credentials if no placeholders are present
-        if (not self.sessions or not isinstance(self.sessions, list)) and (
-            not self.tokens or not isinstance(self.tokens, list)
-        ):
-            raise ValueError("At least one session or token must be provided")
+        if not isinstance(self.sessions, list):
+            self.sessions = list()
+
+        if not isinstance(self.tokens, list):
+            self.tokens = list()
 
         # Convert string strategy to enum if needed
         if isinstance(self.strategy, str):

@@ -225,11 +225,6 @@ class HarvesterApp:
         finally:
             self._graceful_shutdown()
 
-    def start(self) -> bool:
-        """Start the application - deprecated, use run() instead"""
-        logger.warning("start() method is deprecated, use run() instead")
-        return self.run()
-
     def _graceful_shutdown(self) -> None:
         """Enhanced graceful shutdown using shutdown coordinator"""
         with self.shutdown_lock:
