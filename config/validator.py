@@ -164,6 +164,9 @@ class ConfigValidator:
         Args:
             task: Task configuration object
         """
+        if not task.enabled:
+            return
+
         if not task.name:
             self.errors.append("Task name cannot be empty")
 
@@ -175,14 +178,6 @@ class ConfigValidator:
             task.stages.validate()
         except ValueError as e:
             self.errors.append(f"Task {task.name} stage validation failed: {e}")
-
-        # Validate API configuration if use_api is True
-        if task.use_api:
-            if not task.api.base_url:
-                self.errors.append(f"API base URL required for task: {task.name}")
-
-            if not task.api.default_model:
-                self.errors.append(f"Default model required for API task: {task.name}")
 
         # Validate conditions
         if not task.conditions:

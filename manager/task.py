@@ -18,7 +18,7 @@ from core.models import Condition, Patterns, ProviderTask, SearchTask, TaskRecov
 from core.types import IProvider
 from search import client
 from search.provider.base import AIBaseProvider
-from search.provider.registry import GlobalProviderRegistry
+from search.provider.registry import ProviderRegistry
 from stage.base import StageUtils
 from stage.factory import TaskFactory
 from state.builder import StatusBuilder
@@ -26,7 +26,7 @@ from state.models import ProviderStatus, SystemState, SystemStatus
 from state.types import TaskDataProvider
 from tools.coordinator import get_session, get_token
 from tools.logger import get_logger
-from tools.utils import get_service_name, handle_exceptions
+from tools.utils import get_service_name, handle_exceptions, trim
 
 from .base import LifecycleManager
 from .pipeline import Pipeline
@@ -86,25 +86,26 @@ class ProviderFactory:
         provider_type = task_config.provider_type
         name = task_config.name
         api_config = task_config.api
-        extras = task_config.extras
+        extras = task_config.extras or {}
 
-        # Prepare parameters for provider creation
-        kwargs = extras or {}
-        kwargs["default_model"] = api_config.default_model
+        # Copy extras to avoid modifying original object
+        kwargs = extras.copy()
 
-        # Add specific parameters for openai_like providers
-        if provider_type == "openai_like":
-            kwargs.update(
-                {
-                    "name": name,
-                    "base_url": api_config.base_url,
-                    "completion_path": api_config.completion_path,
-                    "model_path": api_config.model_path,
-                }
-            )
+        # Add API configuration parameters
+        params = {
+            "name": name,
+            "base_url": api_config.base_url,
+            "completion_path": api_config.completion_path,
+            "model_path": api_config.model_path,
+            "default_model": api_config.default_model,
+        }
 
-        # Use global registry for all providers
-        return GlobalProviderRegistry.create(provider_type, conditions=conditions, **kwargs)
+        # Only add non-empty parameters
+        for key, value in params.items():
+            if trim(value):
+                kwargs[key] = value
+
+        return ProviderRegistry.create(provider_type, conditions=conditions, **kwargs)
 
 
 class TaskManager(LifecycleManager, TaskDataProvider):

@@ -19,19 +19,21 @@ from .registry import register_provider
 class QianFanProvider(OpenAILikeProvider):
     """QianFan provider implementation."""
 
-    def __init__(self, conditions: List[Condition], default_model: str = ""):
-        default_model = trim(default_model) or "ernie-4.0-8k-latest"
-        base_url = "https://qianfan.baidubce.com"
-
-        super().__init__(
-            name="qianfan",
-            base_url=base_url,
-            default_model=default_model,
-            conditions=conditions,
-            completion_path="/v2/chat/completions",
-            model_path="/v2/models",
-            endpoint_pattern=r"[a-z0-9]{8}(?:-[a-z0-9]{4}){3}-[a-z0-9]{12}",
+    def __init__(self, conditions: List[Condition], **kwargs):
+        # Set QianFan specific defaults
+        self.defaults(
+            kwargs,
+            {
+                "name": "qianfan",
+                "base_url": "https://qianfan.baidubce.com",
+                "completion_path": "/v2/chat/completions",
+                "model_path": "/v2/models",
+                "default_model": "ernie-4.0-8k-latest",
+                "endpoint_pattern": r"[a-z0-9]{8}(?:-[a-z0-9]{4}){3}-[a-z0-9]{12}",
+            },
         )
+
+        super().__init__(conditions=conditions, **kwargs)
 
     def _judge(self, code: int, message: str) -> CheckResult:
         """Judge QianFan API response."""

@@ -27,6 +27,49 @@ class AIBaseProvider(IProvider):
     across the application while providing concrete functionality.
     """
 
+    @staticmethod
+    def extract(kwargs: Dict, defaults: Dict) -> Dict:
+        """Extract configuration parameters from kwargs with defaults.
+
+        Args:
+            kwargs: Input parameters dictionary (will be modified)
+            defaults: Default values dictionary
+
+        Returns:
+            Dict: Processed parameters with defaults applied
+        """
+        result = {}
+        for key, default in defaults.items():
+            # Extract value and remove from kwargs
+            value = kwargs.pop(key, "")
+            result[key] = trim(value) or default
+
+        return result
+
+    @staticmethod
+    def filter(kwargs: Dict, exclude: List[str]) -> Dict:
+        """Filter out specified keys from kwargs.
+
+        Args:
+            kwargs: Input parameters dictionary
+            exclude: Keys to exclude
+
+        Returns:
+            Dict: Filtered parameters dictionary
+        """
+        return {k: v for k, v in kwargs.items() if k not in exclude}
+
+    @staticmethod
+    def defaults(kwargs: Dict, values: Dict) -> None:
+        """Set default values for kwargs if not present.
+
+        Args:
+            kwargs: Parameters dictionary to modify
+            values: Default values to set
+        """
+        for key, value in values.items():
+            kwargs.setdefault(key, value)
+
     def __init__(
         self,
         name: str,

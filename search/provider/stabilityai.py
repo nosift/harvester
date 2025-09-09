@@ -29,12 +29,28 @@ from .base import AIBaseProvider
 class StabilityAIProvider(AIBaseProvider):
     """StabilityAI provider implementation."""
 
-    def __init__(self, conditions: List[Condition], default_model: str = ""):
-        default_model = trim(default_model) or "core"
-        base_url = "https://api.stability.ai"
-        sub_path = "/v2beta/stable-image/generate"
+    def __init__(self, conditions: List[Condition], **kwargs):
+        # Extract parameters with defaults
+        config = self.extract(
+            kwargs,
+            {
+                "name": "stabilityai",
+                "base_url": "https://api.stability.ai",
+                "completion_path": "/v2beta/stable-image/generate",
+                "model_path": "",
+                "default_model": "core",
+            },
+        )
 
-        super().__init__("stabilityai", base_url, sub_path, "", default_model, conditions)
+        super().__init__(
+            config["name"],
+            config["base_url"],
+            config["completion_path"],
+            config["model_path"],
+            config["default_model"],
+            conditions,
+            **kwargs,
+        )
 
     def _get_headers(self, token: str, additional: Optional[Dict] = None) -> Optional[Dict]:
         """Get headers for StabilityAI API requests."""

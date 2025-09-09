@@ -14,7 +14,7 @@ from tools.logger import get_logger
 logger = get_logger("registry")
 
 
-class GlobalProviderRegistry:
+class ProviderRegistry:
     """Global registry for provider types and creation"""
 
     _registry: Dict[str, Type[IProvider]] = {}
@@ -60,27 +60,8 @@ class GlobalProviderRegistry:
         provider_class = cls._registry[provider_type]
 
         try:
-            # Special handling for OpenAILikeProvider which needs name and base_url
-            if provider_type == "openai_like":
-                # Extract required parameters for OpenAILikeProvider
-                name = kwargs.pop("name", "custom")
-                base_url = kwargs.pop("base_url", "")
-                default_model = kwargs.pop("default_model", "")
-                completion_path = kwargs.pop("completion_path", "")
-                model_path = kwargs.pop("model_path", "")
-
-                return provider_class(
-                    name=name,
-                    base_url=base_url,
-                    default_model=default_model,
-                    conditions=conditions,
-                    completion_path=completion_path,
-                    model_path=model_path,
-                    **kwargs,
-                )
-            else:
-                # Standard provider creation
-                return provider_class(conditions=conditions, **kwargs)
+            # All providers now use unified **kwargs approach
+            return provider_class(conditions=conditions, **kwargs)
         except Exception as e:
             logger.error(f"Failed to create provider {provider_type}: {e}")
             raise
@@ -121,7 +102,7 @@ def register_provider(provider_type: str, provider_class: Type[IProvider]) -> No
         provider_type: Provider type identifier
         provider_class: Provider class to register
     """
-    GlobalProviderRegistry.register(provider_type, provider_class)
+    ProviderRegistry.register(provider_type, provider_class)
 
 
 def create_provider(provider_type: str, conditions: List[Condition], **kwargs) -> IProvider:
@@ -135,7 +116,7 @@ def create_provider(provider_type: str, conditions: List[Condition], **kwargs) -
     Returns:
         Provider: Configured provider instance
     """
-    return GlobalProviderRegistry.create(provider_type, conditions, **kwargs)
+    return ProviderRegistry.create(provider_type, conditions, **kwargs)
 
 
 def get_available_providers() -> List[str]:
@@ -144,4 +125,4 @@ def get_available_providers() -> List[str]:
     Returns:
         List[str]: List of available provider type names
     """
-    return GlobalProviderRegistry.get_registered_types()
+    return ProviderRegistry.get_registered_types()

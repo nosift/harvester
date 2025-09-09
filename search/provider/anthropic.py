@@ -29,15 +29,27 @@ logger = get_logger("provider")
 class AnthropicProvider(AIBaseProvider):
     """Anthropic provider implementation."""
 
-    def __init__(self, conditions: List[Condition], default_model: str = ""):
-        default_model = trim(default_model) or "claude-sonnet-4-20250514"
+    def __init__(self, conditions: List[Condition], **kwargs):
+        # Extract parameters with defaults
+        config = self.extract(
+            kwargs,
+            {
+                "name": "anthropic",
+                "base_url": "https://api.anthropic.com",
+                "completion_path": "/v1/messages",
+                "model_path": "",
+                "default_model": "claude-sonnet-4-20250514",
+            },
+        )
+
         super().__init__(
-            "anthropic",
-            "https://api.anthropic.com",
-            "/v1/messages",
-            "",
-            default_model,
+            config["name"],
+            config["base_url"],
+            config["completion_path"],
+            config["model_path"],
+            config["default_model"],
             conditions,
+            **kwargs,
         )
 
     def _get_headers(self, token: str, additional: Optional[Dict] = None) -> Optional[Dict]:

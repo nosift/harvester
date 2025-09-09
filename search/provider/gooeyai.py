@@ -20,12 +20,28 @@ from .registry import register_provider
 class GooeyAIProvider(AIBaseProvider):
     """GooeyAI provider implementation."""
 
-    def __init__(self, conditions: List[Condition], default_model: str = ""):
-        default_model = trim(default_model) or "gpt_4_o_mini"
-        base_url = "https://api.gooey.ai"
-        sub_path = "/v2/google-gpt"
+    def __init__(self, conditions: List[Condition], **kwargs):
+        # Extract parameters with defaults
+        config = self.extract(
+            kwargs,
+            {
+                "name": "gooeyai",
+                "base_url": "https://api.gooey.ai",
+                "completion_path": "/v2/google-gpt",
+                "model_path": "",
+                "default_model": "gpt_4_o_mini",
+            },
+        )
 
-        super().__init__("gooeyai", base_url, sub_path, "", default_model, conditions)
+        super().__init__(
+            config["name"],
+            config["base_url"],
+            config["completion_path"],
+            config["model_path"],
+            config["default_model"],
+            conditions,
+            **kwargs,
+        )
 
     def _get_headers(self, token: str, additional: Optional[Dict] = None) -> Optional[Dict]:
         """Get headers for GooeyAI API requests."""

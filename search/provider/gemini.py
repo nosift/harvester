@@ -26,12 +26,28 @@ from .registry import register_provider
 class GeminiProvider(AIBaseProvider):
     """Google Gemini provider implementation."""
 
-    def __init__(self, conditions: List[Condition], default_model: str = ""):
-        default_model = trim(default_model) or "gemini-2.5-pro"
-        base_url = "https://generativelanguage.googleapis.com"
-        sub_path = "/v1beta/models"
+    def __init__(self, conditions: List[Condition], **kwargs):
+        # Extract parameters with defaults
+        config = self.extract(
+            kwargs,
+            {
+                "name": "gemini",
+                "base_url": "https://generativelanguage.googleapis.com",
+                "completion_path": "/v1beta/models",
+                "model_path": "/v1beta/models",
+                "default_model": "gemini-2.5-pro",
+            },
+        )
 
-        super().__init__("gemini", base_url, sub_path, sub_path, default_model, conditions)
+        super().__init__(
+            config["name"],
+            config["base_url"],
+            config["completion_path"],
+            config["model_path"],
+            config["default_model"],
+            conditions,
+            **kwargs,
+        )
 
     def _get_headers(self, token: str, additional: Optional[Dict] = None) -> Optional[Dict]:
         """Get headers for Gemini API requests."""

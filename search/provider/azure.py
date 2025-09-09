@@ -24,17 +24,21 @@ from .registry import register_provider
 class AzureOpenAIProvider(OpenAILikeProvider):
     """Azure OpenAI provider implementation."""
 
-    def __init__(self, conditions: List[Condition], default_model: str = ""):
-        default_model = trim(default_model) or "gpt-4o"
-        super().__init__(
-            name="azure",
-            base_url="",
-            completion_path="/chat/completions",
-            model_path="/models",
-            default_model=default_model,
-            conditions=conditions,
-            address_pattern=r"https://[a-zA-Z0-9_\-\.]+.openai.azure.com/openai/",
+    def __init__(self, conditions: List[Condition], **kwargs):
+        # Set Azure specific defaults
+        self.defaults(
+            kwargs,
+            {
+                "name": "azure",
+                "base_url": "",
+                "completion_path": "/chat/completions",
+                "model_path": "/models",
+                "default_model": "gpt-4o",
+                "address_pattern": r"https://[a-zA-Z0-9_\-\.]+.openai.azure.com/openai/",
+            },
         )
+
+        super().__init__(conditions=conditions, **kwargs)
 
         self.api_version = "2024-10-21"
 

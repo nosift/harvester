@@ -29,17 +29,27 @@ logger = get_logger("provider")
 class BedrockProvider(AIBaseProvider):
     """AWS Bedrock provider with manual SigV4 authentication."""
 
-    def __init__(self, conditions: List[Condition], default_model: str = ""):
-        default_model = trim(default_model) or "anthropic.claude-3-7-sonnet-20250219-v1:0"
-        base_url = "https://bedrock-runtime.us-east-1.amazonaws.com"
+    def __init__(self, conditions: List[Condition], **kwargs):
+        # Extract parameters with defaults
+        config = self.extract(
+            kwargs,
+            {
+                "name": "bedrock",
+                "base_url": "https://bedrock-runtime.us-east-1.amazonaws.com",
+                "completion_path": "/model/{model-id}/invoke",
+                "model_path": "/foundation-models",
+                "default_model": "anthropic.claude-3-7-sonnet-20250219-v1:0",
+            },
+        )
 
         super().__init__(
-            "bedrock",
-            base_url,
-            "/model/{model-id}/invoke",
-            "/foundation-models",
-            default_model,
+            config["name"],
+            config["base_url"],
+            config["completion_path"],
+            config["model_path"],
+            config["default_model"],
             conditions,
+            **kwargs,
         )
 
     def _parse_credentials(self, region: str, access_key: str, secret_key: str) -> tuple:

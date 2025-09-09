@@ -24,13 +24,28 @@ logger = get_logger("provider")
 class VertexProvider(AIBaseProvider):
     """Google Vertex AI provider implementation."""
 
-    def __init__(self, conditions: List[Condition], default_model: str = ""):
-        default_model = trim(default_model) or "gemini-2.5-pro"
-        base_url = "https://aiplatform.googleapis.com"
-        completion_path = "/v1/projects/{project}/locations/{location}/publishers/{publisher}/models/{model}:predict"
-        model_path = "/v1/projects/{project}/locations/{location}/models"
+    def __init__(self, conditions: List[Condition], **kwargs):
+        # Extract parameters with defaults
+        config = self.extract(
+            kwargs,
+            {
+                "name": "vertex",
+                "base_url": "https://aiplatform.googleapis.com",
+                "completion_path": "/v1/projects/{project}/locations/{location}/publishers/{publisher}/models/{model}:predict",
+                "model_path": "/v1/projects/{project}/locations/{location}/models",
+                "default_model": "gemini-2.5-pro",
+            },
+        )
 
-        super().__init__("vertex", base_url, completion_path, model_path, default_model, conditions)
+        super().__init__(
+            config["name"],
+            config["base_url"],
+            config["completion_path"],
+            config["model_path"],
+            config["default_model"],
+            conditions,
+            **kwargs,
+        )
 
         # Supported publishers in Vertex AI Model Garden
         self.publishers = {

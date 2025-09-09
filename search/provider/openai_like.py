@@ -27,20 +27,47 @@ from .registry import register_provider
 class OpenAILikeProvider(AIBaseProvider):
     """Base class for OpenAI-compatible providers."""
 
-    def __init__(
-        self,
-        name: str,
-        base_url: str,
-        default_model: str,
-        conditions: List[Condition],
-        completion_path: str = "",
-        model_path: str = "",
-        **kwargs,
-    ):
-        completion_path = trim(completion_path) or DEFAULT_COMPLETION_PATH
-        model_path = trim(model_path) or DEFAULT_MODEL_PATH
+    def __init__(self, conditions: List[Condition], **kwargs):
+        # Extract required parameters without defaults
+        name = trim(kwargs.pop("name", ""))
+        base_url = trim(kwargs.pop("base_url", ""))
+        default_model = trim(kwargs.pop("default_model", ""))
 
-        super().__init__(name, base_url, completion_path, model_path, default_model, conditions, **kwargs)
+        # Validate required parameters
+        if not name:
+            raise ValueError("OpenAILike provider requires 'name' parameter to be specified")
+        if not base_url:
+            raise ValueError(f"OpenAILike provider {name} requires 'base_url' parameter to be specified")
+        if not default_model:
+            raise ValueError(f"OpenAILike provider {name} requires 'default_model' parameter to be specified")
+
+        # Extract optional parameters with defaults
+        config = self.extract(
+            kwargs,
+            {
+                "completion_path": DEFAULT_COMPLETION_PATH,
+                "model_path": DEFAULT_MODEL_PATH,
+            },
+        )
+
+        # Add the validated required parameters back to config
+        config.update(
+            {
+                "name": name,
+                "base_url": base_url,
+                "default_model": default_model,
+            }
+        )
+
+        super().__init__(
+            config["name"],
+            config["base_url"],
+            config["completion_path"],
+            config["model_path"],
+            config["default_model"],
+            conditions,
+            **kwargs,
+        )
 
     def _get_headers(self, token: str, additional: Optional[Dict] = None) -> Optional[Dict]:
         """Get headers for OpenAI-like API requests."""
