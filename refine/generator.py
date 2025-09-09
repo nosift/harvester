@@ -389,7 +389,10 @@ class QueryGenerator(IQueryGenerator):
             elif remaining_min == remaining_max and remaining_min > 0:
                 return f"{{{remaining_min}}}"  # Exact count
             elif remaining_min != remaining_max and remaining_max > 0:
-                return f"{{{remaining_min},{remaining_max}}}"  # Range
+                if remaining_max == float("inf"):
+                    return f"{{{remaining_min},}}"  # Open-ended range
+                else:
+                    return f"{{{remaining_min},{remaining_max}}}"  # Range
             else:
                 return ""  # No remaining chars needed
 
@@ -403,7 +406,10 @@ class QueryGenerator(IQueryGenerator):
             elif remaining_min == remaining_max and remaining_min > 0:
                 return f"{{{remaining_min}}}"  # Exact count
             elif remaining_min != remaining_max and remaining_max > 0:
-                return f"{{{remaining_min},{remaining_max}}}"  # Range
+                if remaining_max == float("inf"):
+                    return f"{{{remaining_min},}}"  # Open-ended range
+                else:
+                    return f"{{{remaining_min},{remaining_max}}}"  # Range
             else:
                 return ""  # No remaining chars needed
 
@@ -422,7 +428,10 @@ class QueryGenerator(IQueryGenerator):
             if remaining_min == remaining_max and remaining_min > 0:
                 return f"{{{remaining_min}}}"
             elif remaining_min != remaining_max and remaining_max > 0:
-                return f"{{{remaining_min},{remaining_max}}}"
+                if remaining_max == float("inf"):
+                    return f"{{{remaining_min},}}"  # Open-ended range
+                else:
+                    return f"{{{remaining_min},{remaining_max}}}"
             else:
                 return ""
         else:
@@ -586,6 +595,9 @@ class QueryGenerator(IQueryGenerator):
                 else:
                     quantifier = f"{{{segment.min_length},}}"
             else:
-                quantifier = f"{{{segment.min_length},{int(segment.max_length)}}}"
+                if segment.max_length == float("inf"):
+                    quantifier = f"{{{segment.min_length},}}"
+                else:
+                    quantifier = f"{{{segment.min_length},{int(segment.max_length)}}}"
 
         return f"{charset_part}{quantifier}"
