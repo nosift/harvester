@@ -639,7 +639,7 @@ sequenceDiagram
       tasks:
         - name: "openai"         # 提供商名称
           enabled: true          # 是否启用
-          provider_type: "openai_like"
+          provider_type: "openai"
           use_api: false         # 使用GitHub API进行搜索
           
           # 流水线阶段设置
@@ -693,7 +693,7 @@ sequenceDiagram
    #### 主要配置选项
 
    - **`name`**: 任务的唯一标识符
-   - **`provider_type`**: 决定验证方法（`openai_like`、`anthropic`、`gemini` 等）
+   - **`provider_type`**: 决定验证方法（`openai`、`openai_like`、`anthropic`、`gemini` 等）
    - **`api`**: 用于密钥验证的API端点配置
    - **`patterns.key_pattern`**: 识别有效API密钥的正则表达式模式
    - **`conditions`**: 用于查找潜在密钥的搜索查询

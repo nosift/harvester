@@ -53,7 +53,7 @@ tasks:
     # Enable/disable this provider
     enabled: true
     # Provider type for API compatibility
-    provider_type: "openai_like"
+    provider_type: "openai"
     # Use GitHub API for searching
     use_api: false
     # Pipeline stage settings

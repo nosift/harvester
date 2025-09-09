@@ -204,7 +204,7 @@ ratelimits:
 tasks:
   - name: openai
     enabled: true
-    provider_type: openai_like
+    provider_type: openai # or openai_like
     use_api: false
     stages:
       search: true

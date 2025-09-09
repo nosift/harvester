@@ -651,7 +651,7 @@ The system features a sophisticated **Query Optimization Engine** with mathemati
       tasks:
         - name: "openai"         # Provider name
           enabled: true          # Enable/disable provider
-          provider_type: "openai_like"
+          provider_type: "openai"
           use_api: false         # Use GitHub API for searching
           
           # Pipeline stage settings
@@ -691,7 +691,7 @@ The system features a sophisticated **Query Optimization Engine** with mathemati
    #### Key Configuration Options
 
    - **`name`**: Unique identifier for the task
-   - **`provider_type`**: Determines validation method (`openai_like`, `anthropic`, `gemini`, etc.)
+   - **`provider_type`**: Determines validation method (`openai`, `openai_like`, `anthropic`, `gemini`, etc.)
    - **`api`**: API endpoint configuration for key validation
    - **`patterns.key_pattern`**: Regex pattern to identify valid API keys
    - **`conditions`**: Search queries to find potential keys
