@@ -30,13 +30,15 @@ class AzureOpenAIProvider(OpenAILikeProvider):
             kwargs,
             {
                 "name": "azure",
-                "base_url": "",
-                "completion_path": "/chat/completions",
                 "model_path": "/models",
                 "default_model": "gpt-4o",
                 "address_pattern": r"https://[a-zA-Z0-9_\-\.]+.openai.azure.com/openai/",
             },
         )
+
+        kwargs["completion_path"] = "/chat/completions"
+        if not trim(kwargs.get("base_url", "")):
+            kwargs["base_url"] = "https://fake.openai.azure.com"
 
         super().__init__(conditions=conditions, **kwargs)
 
