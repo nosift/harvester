@@ -65,6 +65,41 @@ class CharClassSegment(Segment):
 
         return min(total, 1000000)  # Cap at reasonable limit
 
+    def has_range(self) -> bool:
+        """Check if quantifier has range like {8,12}."""
+        if not self.original_quantifier:
+            return False
+        if self.original_quantifier.startswith("{") and self.original_quantifier.endswith("}"):
+            content = self.original_quantifier[1:-1]
+            return "," in content and content.split(",")[1].strip() != ""
+        return False
+
+    def has_min(self) -> bool:
+        """Check if quantifier has minimum like {8,} or +."""
+        if not self.original_quantifier:
+            return False
+        if self.original_quantifier == "+":
+            return True
+        if self.original_quantifier.startswith("{") and self.original_quantifier.endswith("}"):
+            content = self.original_quantifier[1:-1]
+            return "," in content and content.split(",")[1].strip() == ""
+        return False
+
+    def is_specific(self) -> bool:
+        """Check if quantifier is specific like {8}."""
+        if not self.original_quantifier:
+            return self.min_length == self.max_length == 1
+        if self.original_quantifier.startswith("{") and self.original_quantifier.endswith("}"):
+            content = self.original_quantifier[1:-1]
+            return "," not in content
+        return False
+
+    def is_positive_class(self) -> bool:
+        """Check if this is a positive character class (not negated)."""
+        if not self.original_charset_str:
+            return True
+        return not (self.original_charset_str.startswith("[^") and self.original_charset_str.endswith("]"))
+
 
 @dataclass
 class OptionalSegment(Segment):

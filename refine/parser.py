@@ -4,6 +4,8 @@
 Regex pattern parser with support for complex patterns.
 """
 
+import re
+import string
 from typing import List, Optional, Set, Tuple, Union
 
 from tools.logger import get_logger
@@ -31,12 +33,15 @@ class RegexParser(IRegexParser):
         if not pattern:
             return []
 
-        pos, length = 0, len(pattern)
+        # Preprocess pattern to handle negated classes and shortcuts
+        preprocessed = self._preprocess_pattern(pattern)
+
+        pos, length = 0, len(preprocessed)
         segments = list()
 
         try:
             while pos < length:
-                segment, pos = self._parse_next(pattern, pos, length)
+                segment, pos = self._parse_next(preprocessed, pos, length)
                 if segment:
                     segment.position = len(segments)
                     segments.append(segment)
@@ -312,7 +317,7 @@ class RegexParser(IRegexParser):
                 # Create character class for \w
                 segment = CharClassSegment()
                 segment.position = pos - 2
-                segment.charset = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_")
+                segment.charset = set(string.ascii_letters + string.digits + "_")
                 segment.min_length = min_len
                 segment.max_length = max_len
                 segment.original_quantifier = quantifier
@@ -329,7 +334,7 @@ class RegexParser(IRegexParser):
                 # Create character class for \d
                 segment = CharClassSegment()
                 segment.position = pos - 2
-                segment.charset = set("0123456789")
+                segment.charset = set(string.digits)
                 segment.min_length = min_len
                 segment.max_length = max_len
                 segment.original_quantifier = quantifier
@@ -369,6 +374,115 @@ class RegexParser(IRegexParser):
     def _detect_case_sensitivity(self, pattern: str) -> bool:
         """Detect if pattern has (?-i) case sensitive flag."""
         return "(?-i)" in pattern
+
+    def _preprocess_pattern(self, pattern: str) -> str:
+        """Preprocess pattern to handle shortcuts and negated classes."""
+        # First handle shortcut expansions
+        processed = self._expand_shortcuts(pattern)
+
+        # Then convert negated classes to positive equivalents
+        processed = self._convert_negated_classes(processed)
+
+        return processed
+
+    def _expand_shortcuts(self, pattern: str) -> str:
+        """Expand regex shortcuts like \\d, \\w, \\s to explicit character classes."""
+
+        # Replace shortcuts outside of character classes
+        # Use negative lookbehind and lookahead to avoid replacing inside []
+        replacements = [
+            (r"(?<!\[)\\d(?![^\[]*\])", "[0-9]"),
+            (r"(?<!\[)\\D(?![^\[]*\])", "[^0-9]"),
+            (r"(?<!\[)\\w(?![^\[]*\])", "[a-zA-Z0-9_]"),
+            (r"(?<!\[)\\W(?![^\[]*\])", "[^a-zA-Z0-9_]"),
+            (r"(?<!\[)\\s(?![^\[]*\])", "[ \\t\\n\\r\\f\\v]"),
+            (r"(?<!\[)\\S(?![^\[]*\])", "[^ \\t\\n\\r\\f\\v]"),
+        ]
+
+        result = pattern
+        for old, new in replacements:
+            result = re.sub(old, new, result)
+
+        return result
+
+    def _convert_negated_classes(self, pattern: str) -> str:
+        """Convert negated character classes to positive equivalents."""
+
+        # Find all negated character classes [^...]
+        negated_pattern = r"\[\^([^\]]+)\]"
+
+        def replace_negated(match):
+            negated_content = match.group(1)
+            return self._negated_to_positive(negated_content)
+
+        return re.sub(negated_pattern, replace_negated, pattern)
+
+    def _negated_to_positive(self, negated_content: str) -> str:
+        """Convert negated character class content to positive equivalent."""
+        # Parse what's being excluded
+        excluded = set()
+        i = 0
+        while i < len(negated_content):
+            if i + 2 < len(negated_content) and negated_content[i + 1] == "-":
+                # Range like a-z, A-Z, 0-9
+                start, end = negated_content[i], negated_content[i + 2]
+                for c in range(ord(start), ord(end) + 1):
+                    excluded.add(chr(c))
+                i += 3
+            elif negated_content[i] == "\\" and i + 1 < len(negated_content):
+                # Escaped character
+                next_char = negated_content[i + 1]
+                if next_char == "s":
+                    # Whitespace characters
+                    excluded.update(" \t\n\r\f\v")
+                elif next_char == "d":
+                    # Digit characters
+                    excluded.update(string.digits)
+                elif next_char == "w":
+                    # Word characters: letters, digits, underscore
+                    excluded.update(string.ascii_letters + string.digits + "_")
+                elif next_char == "/":
+                    excluded.add("/")
+                elif next_char == "t":
+                    excluded.add("\t")
+                elif next_char == "n":
+                    excluded.add("\n")
+                elif next_char == "r":
+                    excluded.add("\r")
+                else:
+                    excluded.add(next_char)
+                i += 2
+            else:
+                excluded.add(negated_content[i])
+                i += 1
+
+        # Build a practical character class with ASCII characters only
+        # Keep it concise and focused on common ASCII usage
+
+        parts = []
+
+        # ASCII letters
+        if not any(c in excluded for c in string.ascii_letters):
+            parts.append("a-zA-Z")
+
+        # ASCII digits
+        if not any(c in excluded for c in string.digits):
+            parts.append("0-9")
+
+        # Common ASCII punctuation and symbols
+        safe_punct = "!#$%&()*+,.:;<=>?@_`{|}~-"
+        included_punct = [c for c in safe_punct if c not in excluded]
+        if included_punct:
+            # Escape special characters
+            escaped_punct = []
+            for c in included_punct:
+                if c in "]^-\\":
+                    escaped_punct.append("\\" + c)
+                else:
+                    escaped_punct.append(c)
+            parts.extend(escaped_punct)
+
+        return f"[{''.join(parts)}]"
 
     def _calculate_prefix_lengths(self, segments: List[Segment]) -> None:
         """Calculate fixed prefix length for each segment."""

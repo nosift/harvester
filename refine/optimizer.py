@@ -148,17 +148,19 @@ class EnumerationOptimizer(IEnumerationOptimizer):
                 # Prioritize single-segment strategies over multi-segment ones
                 single = [s for s in suitable if len(s.segments) == 1]
                 if single:
-                    best = self._select_strategy_with_min_depth(single, partitions)
+                    # Among single-segment strategies, prefer highest value segment
+                    best = max(single, key=lambda s: s.segments[0].value if s.segments else 0)
                 else:
                     best = self._select_strategy_with_min_depth(suitable, partitions)
                 return best, True
 
             # If no suitable strategy found, return the one that generates most queries
             if all_strats:
-                # Prioritize single-segment strategies
+                # Prioritize single-segment strategies with highest value
                 single = [s for s in all_strats if len(s.segments) == 1]
                 if single:
-                    best = max(single, key=lambda s: s.queries)
+                    # Select single-segment strategy with highest segment value
+                    best = max(single, key=lambda s: s.segments[0].value if s.segments else 0)
                 else:
                     best = max(all_strats, key=lambda s: s.queries)
                 return best, False
@@ -491,14 +493,18 @@ class EnumerationOptimizer(IEnumerationOptimizer):
             else:
                 cost_weight = 1.0
 
-            value = (prefix_weight + suffix_weight) / max(0.1, cost_weight)
+            base_value = (prefix_weight + suffix_weight) / max(0.1, cost_weight)
+
+            # Apply priority factor to base value
+            priority_factor = self._calculate_priority_factor(segment)
+            final_value = base_value * priority_factor
 
             logger.debug(
                 f"Segment value: prefix={prefix_length}, suffix={suffix_length}, "
-                f"combinations={combinations}, value={value:.3f}"
+                f"combinations={combinations}, priority={priority_factor:.2f}, value={final_value:.3f}"
             )
 
-            return value
+            return final_value
 
         except Exception as e:
             logger.warning(f"Value calculation failed: {e}")
@@ -524,6 +530,39 @@ class EnumerationOptimizer(IEnumerationOptimizer):
         )
 
         return EnumerationStrategy(selected_segments, all_segments, total_value, total_queries)
+
+    def _calculate_priority_factor(self, segment: CharClassSegment) -> float:
+        """Calculate priority multiplier based on segment characteristics."""
+        factor = 1.0
+
+        # Quantifier-based priority boost (stronger preference for specific ranges)
+        if segment.has_range():
+            factor *= 3.0  # {8,12} - highest priority
+        elif segment.has_min():
+            # Check if it's a meaningful minimum (>=8 is good for tokens)
+            if segment.min_length >= 8:
+                factor *= 2.5  # {8,} with meaningful minimum
+            else:
+                factor *= 1.5  # {1,} or + - lower priority
+        elif segment.is_specific():
+            factor *= 2.0  # {8} - good priority
+
+        # Character class type adjustment
+        if segment.is_positive_class():
+            factor *= 1.2
+        else:
+            factor *= 0.7  # Stronger penalty for converted negated classes
+
+        # Character set size adjustment (prefer smaller, more specific sets)
+        charset_size = len(segment.charset)
+        if charset_size <= 64:  # [a-zA-Z0-9_-] = 64 chars
+            factor *= 1.3
+        elif charset_size <= 80:
+            factor *= 1.0
+        else:
+            factor *= 0.8  # Penalty for large character sets
+
+        return factor
 
     def _calculate_segment_optimal_depth(self, segment: CharClassSegment) -> int:
         """Calculate optimal enumeration depth using current strategy."""
