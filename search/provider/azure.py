@@ -32,13 +32,22 @@ class AzureOpenAIProvider(OpenAILikeProvider):
                 "name": "azure",
                 "model_path": "/models",
                 "default_model": "gpt-4o",
-                "address_pattern": r"https://[a-zA-Z0-9_\-\.]+.openai.azure.com/openai/",
             },
         )
 
         kwargs["completion_path"] = "/chat/completions"
         if not trim(kwargs.get("base_url", "")):
             kwargs["base_url"] = "https://fake.openai.azure.com"
+
+        for condition in conditions:
+            if not condition or not condition.patterns:
+                continue
+
+            if not condition.patterns.address_pattern:
+                condition.patterns.address_pattern = r"https://[a-zA-Z0-9_\-\.]+.openai.azure.com/openai/"
+
+            if not condition.patterns.endpoint_pattern:
+                condition.patterns.endpoint_pattern = r"/deployments/([a-zA-Z0-9_\-]+)/chat"
 
         super().__init__(conditions=conditions, **kwargs)
 
@@ -81,7 +90,7 @@ class AzureOpenAIProvider(OpenAILikeProvider):
         ):
             return ""
 
-        model = trim(model) or self._default_model
+        model = trim(endpoint) or trim(model) or self._default_model
         return f"{address}/deployments/{model}/{self.completion_path}?api-version={self.api_version}"
 
     def check(self, token: str, address: str = "", endpoint: str = "", model: str = "") -> CheckResult:
@@ -93,6 +102,9 @@ class AzureOpenAIProvider(OpenAILikeProvider):
         url = self.__generate_address(address=address, endpoint=endpoint, model=model)
         if not url:
             return CheckResult.fail(ErrorReason.INVALID_KEY)
+
+        if not model:
+            model = trim(endpoint)
 
         return super().check(token=token, address=url, endpoint=endpoint, model=model)
 
