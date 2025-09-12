@@ -61,7 +61,7 @@ class IQueryGenerator(ABC):
     """Interface for query generation."""
 
     @abstractmethod
-    def generate(self, strategy, max_depth: int = 3) -> List[str]:
+    def generate(self, segments: List[Segment], strategy: EnumerationStrategy, partitions: int = -1) -> List[str]:
         """Generate queries from enumeration strategy."""
         pass
 

@@ -36,6 +36,17 @@ class QueryGenerator(IQueryGenerator):
             query = self._reconstruct_pattern(segments)
             return [query] if query else []
 
+        # Precompute effective charset for all segments
+        for segment in strategy.segments:
+            if segment.case_sensitive:
+                # Case sensitive, use original charset
+                segment.effective_charset = segment.charset
+            else:
+                # Case insensitive, process charset
+                expanded = self._expand_charset_shortcuts(segment.original_charset_str)
+                charset = self._parse_charset_to_set(expanded, segment.case_sensitive)
+                segment.effective_charset = charset
+
         try:
             if partitions > 0:
                 # Use depth-based generation logic
@@ -88,8 +99,10 @@ class QueryGenerator(IQueryGenerator):
         # Each segment contributes charset_size^depth combinations
         # Total combinations = sum(charset_size^depth for each segment)
 
-        # Find the minimum charset size to use as base
-        min_charset_size = min(len(segment.charset) for segment in segments if len(segment.charset) > 0)
+        # Find the minimum effective charset size to use as base
+        min_charset_size = min(
+            len(segment.effective_charset) for segment in segments if len(segment.effective_charset) > 0
+        )
 
         if min_charset_size <= 1:
             return 1
@@ -205,12 +218,8 @@ class QueryGenerator(IQueryGenerator):
 
     def _generate_segment_combinations(self, segment: CharClassSegment, depth: int = -1) -> List[str]:
         """Generate combinations for single segment with optional specific depth."""
-        # Expand shortcuts like \w and \d
-        expanded_charset = self._expand_charset_shortcuts(segment.original_charset_str)
-
-        # Parse charset considering case sensitivity
-        charset = self._parse_charset_to_set(expanded_charset, segment.case_sensitive)
-        charset = sorted(list(charset))
+        # Use precomputed effective charset or fallback to computation
+        charset = sorted(list(segment.effective_charset) or [])
 
         if depth > 0:
             # Use specific depth logic
@@ -242,7 +251,7 @@ class QueryGenerator(IQueryGenerator):
 
     def _calculate_optimal_depth(self, segment: CharClassSegment) -> int:
         """Calculate optimal enumeration depth based on mathematical analysis."""
-        charset_size = len(segment.charset)
+        charset_size = len(segment.effective_charset) if segment.effective_charset else len(segment.charset)
 
         if charset_size == 0:
             return 0

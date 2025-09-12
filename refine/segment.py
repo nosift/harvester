@@ -37,10 +37,13 @@ class CharClassSegment(Segment):
     original_charset_str: str = ""  # Store original charset string with escapes
     case_sensitive: bool = False  # Whether case sensitive ((?-i) flag)
     value: float = 0.0
+    effective_charset: Set[str] = None  # Precomputed effective charset
 
     def __post_init__(self):
         if self.charset is None:
             self.charset = set()
+        if self.effective_charset is None:
+            self.effective_charset = set()
 
     @property
     def combinations(self) -> int:
